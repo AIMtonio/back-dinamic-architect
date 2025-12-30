@@ -1,0 +1,5 @@
+[
+  { "name": "Auth Lambda", "type": "lambda" },
+  { "name": "User Service EKS", "type": "eks" },
+  { "name": "Billing Lambda", "type": "lambda" }
+]
