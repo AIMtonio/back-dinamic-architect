@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<archimate:model xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:archimate="http://www.archimatetool.com/archimate" name="Guatemala" id="id-d3f201552bc044d7bfb89d35b5819c3e" version="5.0.0">
+  <folder name="Strategy" id="id-c38a0efa98cf4a9d8a6b3b6e5a777863" type="strategy">
+    <element xsi:type="archimate:CourseOfAction" name="Brindar un flujo denominado Prestamos gestionado desde la App Macropay" id="id-243de2b263264cc0bdf2dcb1b386fac7"/>
+    <element xsi:type="archimate:CourseOfAction" name="Creación de un nuevo flujo de prestamos en la aplicación Macropay" id="id-b1e158ccf04b44e1b8e299aedd97e2b7"/>
+    <element xsi:type="archimate:CourseOfAction" name="Configurar prestamo como producto en la plataforma de Productos Financieros y CML" id="id-4b2931fecb454f5b99e0f1bbc79e764f"/>
+    <element xsi:type="archimate:CourseOfAction" name="Utilizar las tecnologías actuales para el nuevo producto" id="id-5987599cb034447dbbcd3d3c486c5ffc"/>
+  </folder>
+  <folder name="Business" id="id-3efcef81226e42e194bbb49d012f14cf" type="business">
+    <element xsi:type="archimate:BusinessActor" name="Comercial" id="id-2a65a7b7e8064defb203d7bf262ae1d0"/>
+    <element xsi:type="archimate:BusinessActor" name="Cobranza" id="id-78487c3876d24307857e9df441dbcd0b"/>
+    <element xsi:type="archimate:BusinessActor" name="CIAB" id="id-5babb43d574c48239232ce0685b1fab1"/>
+    <element xsi:type="archimate:BusinessActor" name="Cadena de suministro" id="id-bdb03ce3ed484af2a642ba4fa4a21faf"/>
+    <element xsi:type="archimate:BusinessActor" name="Jurídico" id="id-b7546518391b4555a7076a382470a0ef"/>
+    <element xsi:type="archimate:BusinessActor" name="Innovación Crediticia" id="id-9bb7cd856bfd4043802e30c296df782f"/>
+    <element xsi:type="archimate:BusinessActor" name="Administración y Finanzas" id="id-edae0d3d69d14845ae1cc3717f8dfdf2"/>
+    <element xsi:type="archimate:BusinessActor" name="Capital Humano" id="id-f166605d14334180a5a055ffa83c6aff"/>
+    <element xsi:type="archimate:BusinessActor" name="Experiencia de Clientes" id="id-0ea2482f9da84b6ea18cd7f70fd386f8"/>
+    <element xsi:type="archimate:BusinessActor" name="Transformación digital (copy)" id="id-dd47bd46d5b44c3d9af8f6010cc5dc71"/>
+    <element xsi:type="archimate:BusinessActor" name="Compras Internas" id="id-edbfe7ccae4d42ba8fd5b7b826054af4"/>
+    <element xsi:type="archimate:BusinessActor" name="Auditoria" id="id-fd7bf5e1b9af4764be71602d0419c45d"/>
+    <element xsi:type="archimate:BusinessActor" name="Ciberseguridad" id="id-ea36a50a101a4f769bf49f7c831a85e6"/>
+    <element xsi:type="archimate:BusinessActor" name="Laboratorio SIL y Garantías" id="id-cf911a159a09458db1454a02d43fe4d4"/>
+    <element xsi:type="archimate:BusinessActor" name="SAP (copy)" id="id-2ae77889757b48168ea4ebc72aa63d1c"/>
+    <element xsi:type="archimate:BusinessActor" name="SAP (copy)" id="id-b60b28a443324cf3bd5e4fa4d94180f0"/>
+    <element xsi:type="archimate:BusinessActor" name="Transformación Digital" id="id-dcb58761cba6469ca61299b67ed95e86"/>
+    <element xsi:type="archimate:BusinessActor" name="Aplicaciones" id="id-5a3a319e3b234a24861d35556ed05144"/>
+  </folder>
+  <folder name="Application" id="id-7c54a458707f48b0bf6169ef6b468f9a" type="application"/>
+  <folder name="Technology &amp; Physical" id="id-5c4565673f51438abf53aa2e145bec15" type="technology"/>
+  <folder name="Motivation" id="id-3899ea9d710c41a6a1ae775807221ceb" type="motivation">
+    <element xsi:type="archimate:Principle" name="Implementar la adquisición de préstamos desde la aplicación de Macropay" id="id-fa3f6e20a7fa40deb769cda66e5e64d2"/>
+    <element xsi:type="archimate:Principle" name="Mantener el flujo actual para la administración de créditos en las plataformas satelites." id="id-7fed5997282d4293bb3f218404aee223"/>
+    <element xsi:type="archimate:Goal" name="Mejorar la experiencia del cliente de manera eficiente y efectiva" id="id-345f2f11a032422084d793a3e2ba027e"/>
+    <element xsi:type="archimate:Driver" name="Fortalecer la Relación con Clientes Selectos" id="id-49ebba6f35cd4226a43bbd56c874b5dc"/>
+    <element xsi:type="archimate:Driver" name="Incrementar la cartera de Macropay integrando prestamos desde la aplicación" id="id-cd749b32c56d4054a6d1b9231d41c974"/>
+    <element xsi:type="archimate:Driver" name="Agilizar el proceso para Obtención de prestamos" id="id-f091aaf3832642d6b80568c91b640f6d"/>
+    <element xsi:type="archimate:Goal" name="Impulsar el Cross-Selling (venta cruzada) a clientes selectos" id="id-02119dcf57404bdfad0c6dcf83f1045f"/>
+    <element xsi:type="archimate:Goal" name="Aumentar las funciones que se pueden hacer desde la app" id="id-5cdf65efc8a14626b01065ba64cf1229"/>
+    <element xsi:type="archimate:Goal" name="Mejorar la experiencia del cliente de manera eficiente y efectiva (copy) (copy) (copy)" id="id-074b16a9268b48f9966f8474e8d5840b"/>
+  </folder>
+  <folder name="Implementation &amp; Migration" id="id-6fc98df1117141e6bd9f6af653188e95" type="implementation_migration"/>
+  <folder name="Other" id="id-e8649e7312514829b1c8f9678716b415" type="other"/>
+  <folder name="Relations" id="id-f88eecfe481946b89f35d5c3bbebb678" type="relations">
+    <element xsi:type="archimate:CompositionRelationship" id="id-149a6a4900da4550a2c5679460337089" source="id-243de2b263264cc0bdf2dcb1b386fac7" target="id-4b2931fecb454f5b99e0f1bbc79e764f"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-7971d67a3aef4078b454ee0a08ca03de" source="id-243de2b263264cc0bdf2dcb1b386fac7" target="id-7fed5997282d4293bb3f218404aee223"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-cb67062b5147478a85000b147f3f3f0a" source="id-243de2b263264cc0bdf2dcb1b386fac7" target="id-fa3f6e20a7fa40deb769cda66e5e64d2"/>
+    <element xsi:type="archimate:InfluenceRelationship" id="id-a79b6c4f286f4279999dd3c3276e5362" source="id-345f2f11a032422084d793a3e2ba027e" target="id-cd749b32c56d4054a6d1b9231d41c974"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-3a642f4c2735459ea06b058839b290b6" source="id-243de2b263264cc0bdf2dcb1b386fac7" target="id-b1e158ccf04b44e1b8e299aedd97e2b7"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-b04fbfa6c94a4017aa41d4c574e0a68b" source="id-fa3f6e20a7fa40deb769cda66e5e64d2" target="id-345f2f11a032422084d793a3e2ba027e"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-293a894d48054f2ea5574138986f438e" source="id-7fed5997282d4293bb3f218404aee223" target="id-345f2f11a032422084d793a3e2ba027e"/>
+    <element xsi:type="archimate:InfluenceRelationship" id="id-8bf9b6d9aecd4e3a9ab3c9d9f093f702" source="id-345f2f11a032422084d793a3e2ba027e" target="id-49ebba6f35cd4226a43bbd56c874b5dc"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-3d7d80818f6a49b3b84b3a30ba70511e" source="id-345f2f11a032422084d793a3e2ba027e" target="id-02119dcf57404bdfad0c6dcf83f1045f"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-ced4c564ac354df6b9804746f6f613eb" source="id-345f2f11a032422084d793a3e2ba027e" target="id-5cdf65efc8a14626b01065ba64cf1229"/>
+    <element xsi:type="archimate:InfluenceRelationship" id="id-1e1abf99f99649d7a55cc3d978b8141e" source="id-345f2f11a032422084d793a3e2ba027e" target="id-f091aaf3832642d6b80568c91b640f6d"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-b07fade2b46a48e195dd493ae9fa0c50" source="id-243de2b263264cc0bdf2dcb1b386fac7" target="id-5987599cb034447dbbcd3d3c486c5ffc"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-21143c1a96534314be40531920e10799" source="id-fa3f6e20a7fa40deb769cda66e5e64d2" target="id-7fed5997282d4293bb3f218404aee223"/>
+  </folder>
+  <folder name="Views" id="id-10d54e89e2e246d29867938d85e10790" type="diagrams">
+    <element xsi:type="archimate:ArchimateDiagramModel" name="Guatemala" id="id-7598903c01d3468eae229cdf897ae17f">
+      <child xsi:type="archimate:Group" id="id-31e2edb99faf4a369aacdb19e00e6d1e" name="Involucrados" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#5c5c5c" textAlignment="1" fillColor="#d2d7d7">
+        <bounds x="96" y="24" width="1141" height="205"/>
+        <child xsi:type="archimate:DiagramObject" id="id-f037b93b7a574e7abb7c03bc0295da68" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#5c5c5c" fillColor="#ffffb5" archimateElement="id-2a65a7b7e8064defb203d7bf262ae1d0">
+          <bounds x="42" y="36" width="169" height="27"/>
+        </child>
+      </child>
+      <child xsi:type="archimate:Group" id="id-1e0895b287ad4c1b815206b33740fbfa" name="Principales Resultados Esperados" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#5c5c5c" textAlignment="1" fillColor="#d2d7d7">
+        <bounds x="96" y="684" width="1081" height="169"/>
+        <child xsi:type="archimate:DiagramObject" id="id-fe6ccceb7177433f93e87ceb50028958" targetConnections="id-04ece3e42d9440abb6de19999d3746ac" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#5c5c5c" fillColor="#ccccff" archimateElement="id-fa3f6e20a7fa40deb769cda66e5e64d2">
+          <bounds x="312" y="72" width="200" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dd26409b82c349cfbd7336fca23d659e" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#000000" source="id-fe6ccceb7177433f93e87ceb50028958" target="id-6b63daa1e8454e33a23963d3ae5e6bf4" archimateRelationship="id-b04fbfa6c94a4017aa41d4c574e0a68b"/>
+        </child>
+      </child>
+      <child xsi:type="archimate:Group" id="id-22e7390f894b4786bbd41027156eafb9" name="Objetivos a lograr" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#5c5c5c" textAlignment="1" fillColor="#d2d7d7">
+        <bounds x="96" y="492" width="1081" height="169"/>
+        <child xsi:type="archimate:DiagramObject" id="id-6b63daa1e8454e33a23963d3ae5e6bf4" targetConnections="id-dd26409b82c349cfbd7336fca23d659e" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#5c5c5c" fillColor="#ccccff" archimateElement="id-345f2f11a032422084d793a3e2ba027e">
+          <bounds x="456" y="60" width="217" height="49"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-797fb48ed5924684844344b09e229258" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#000000" source="id-6b63daa1e8454e33a23963d3ae5e6bf4" target="id-0e707a07fa7a406a9aa67d1d14ab3132" archimateRelationship="id-a79b6c4f286f4279999dd3c3276e5362"/>
+        </child>
+      </child>
+      <child xsi:type="archimate:Group" id="id-971fbe3c963944e68b4355fa2ff4440b" name="Drivers" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#5c5c5c" textAlignment="1" fillColor="#d2d7d7">
+        <bounds x="96" y="252" width="1081" height="169"/>
+        <child xsi:type="archimate:DiagramObject" id="id-0e707a07fa7a406a9aa67d1d14ab3132" targetConnections="id-797fb48ed5924684844344b09e229258" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#5c5c5c" fillColor="#ccccff" archimateElement="id-cd749b32c56d4054a6d1b9231d41c974">
+          <bounds x="432" y="65" width="277" height="40"/>
+        </child>
+      </child>
+      <child xsi:type="archimate:Group" id="id-6a27e8ff32d34fbb8fecfe6f754351ce" name="Planes de Acción" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#5c5c5c" textAlignment="1" fillColor="#d2d7d7">
+        <bounds x="96" y="888" width="1117" height="301"/>
+        <child xsi:type="archimate:DiagramObject" id="id-990ef265aba046e2814b661ca117510a" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#5c5c5c" fillColor="#f5deaa" archimateElement="id-243de2b263264cc0bdf2dcb1b386fac7">
+          <bounds x="468" y="60" width="249" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-04ece3e42d9440abb6de19999d3746ac" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#000000" source="id-990ef265aba046e2814b661ca117510a" target="id-fe6ccceb7177433f93e87ceb50028958" archimateRelationship="id-cb67062b5147478a85000b147f3f3f0a"/>
+        </child>
+      </child>
+    </element>
+  </folder>
+</archimate:model>
