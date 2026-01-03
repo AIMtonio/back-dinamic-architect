@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<archimate:model xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:archimate="http://www.archimatetool.com/archimate" name="Guatemala" id="id-d3f201552bc044d7bfb89d35b5819c3e" version="5.0.0">
+  <folder name="Strategy" id="id-c38a0efa98cf4a9d8a6b3b6e5a777863" type="strategy">
+    <element xsi:type="archimate:CourseOfAction" name="Brindar un flujo denominado Prestamos gestionado desde la App Macropay" id="id-243de2b263264cc0bdf2dcb1b386fac7"/>
+  </folder>
+  <folder name="Business" id="id-3efcef81226e42e194bbb49d012f14cf" type="business">
+    <element xsi:type="archimate:BusinessActor" name="Aplicaciones" id="id-5a3a319e3b234a24861d35556ed05144"/>
+  </folder>
+  <folder name="Application" id="id-7c54a458707f48b0bf6169ef6b468f9a" type="application"/>
+  <folder name="Technology &amp; Physical" id="id-5c4565673f51438abf53aa2e145bec15" type="technology"/>
+  <folder name="Motivation" id="id-3899ea9d710c41a6a1ae775807221ceb" type="motivation">
+    <element xsi:type="archimate:Principle" name="Implementar la adquisición de préstamos desde la aplicación de Macropay" id="id-fa3f6e20a7fa40deb769cda66e5e64d2"/>
+    <element xsi:type="archimate:Goal" name="Mejorar la experiencia del cliente de manera eficiente y efectiva" id="id-345f2f11a032422084d793a3e2ba027e"/>
+    <element xsi:type="archimate:Driver" name="Incrementar la cartera de Macropay integrando prestamos desde la aplicación" id="id-cd749b32c56d4054a6d1b9231d41c974"/>
+  </folder>
+  <folder name="Implementation &amp; Migration" id="id-6fc98df1117141e6bd9f6af653188e95" type="implementation_migration"/>
+  <folder name="Other" id="id-e8649e7312514829b1c8f9678716b415" type="other"/>
+  <folder name="Relations" id="id-f88eecfe481946b89f35d5c3bbebb678" type="relations">
+    <element xsi:type="archimate:RealizationRelationship" id="id-cb67062b5147478a85000b147f3f3f0a" source="id-243de2b263264cc0bdf2dcb1b386fac7" target="id-fa3f6e20a7fa40deb769cda66e5e64d2"/>
+    <element xsi:type="archimate:InfluenceRelationship" id="id-a79b6c4f286f4279999dd3c3276e5362" source="id-345f2f11a032422084d793a3e2ba027e" target="id-cd749b32c56d4054a6d1b9231d41c974"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-b04fbfa6c94a4017aa41d4c574e0a68b" source="id-fa3f6e20a7fa40deb769cda66e5e64d2" target="id-345f2f11a032422084d793a3e2ba027e"/>
+  </folder>
+  <folder name="Views" id="id-10d54e89e2e246d29867938d85e10790" type="diagrams">
+    <element xsi:type="archimate:ArchimateDiagramModel" name="Guatemala" id="id-7598903c01d3468eae229cdf897ae17f">
+      <child xsi:type="archimate:Group" id="id-31e2edb99faf4a369aacdb19e00e6d1e" name="Involucrados" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#5c5c5c" textAlignment="1" fillColor="#d2d7d7">
+        <bounds x="96" y="24" width="1141" height="205"/>
+        <child xsi:type="archimate:DiagramObject" id="id-46e67a4982274bb283182f9e66112646" archimateElement="id-5a3a319e3b234a24861d35556ed05144">
+          <bounds x="168" y="96" width="120" height="55"/>
+        </child>
+      </child>
+      <child xsi:type="archimate:Group" id="id-1e0895b287ad4c1b815206b33740fbfa" name="Principales Resultados Esperados" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#5c5c5c" textAlignment="1" fillColor="#d2d7d7">
+        <bounds x="96" y="684" width="1081" height="169"/>
+        <child xsi:type="archimate:DiagramObject" id="id-fe6ccceb7177433f93e87ceb50028958" targetConnections="id-04ece3e42d9440abb6de19999d3746ac" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#5c5c5c" fillColor="#ccccff" archimateElement="id-fa3f6e20a7fa40deb769cda66e5e64d2">
+          <bounds x="312" y="72" width="200" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dd26409b82c349cfbd7336fca23d659e" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#000000" source="id-fe6ccceb7177433f93e87ceb50028958" target="id-6b63daa1e8454e33a23963d3ae5e6bf4" archimateRelationship="id-b04fbfa6c94a4017aa41d4c574e0a68b"/>
+        </child>
+      </child>
+      <child xsi:type="archimate:Group" id="id-22e7390f894b4786bbd41027156eafb9" name="Objetivos a lograr" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#5c5c5c" textAlignment="1" fillColor="#d2d7d7">
+        <bounds x="96" y="492" width="1081" height="169"/>
+        <child xsi:type="archimate:DiagramObject" id="id-6b63daa1e8454e33a23963d3ae5e6bf4" targetConnections="id-dd26409b82c349cfbd7336fca23d659e" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#5c5c5c" fillColor="#ccccff" archimateElement="id-345f2f11a032422084d793a3e2ba027e">
+          <bounds x="456" y="60" width="217" height="49"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-797fb48ed5924684844344b09e229258" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#000000" source="id-6b63daa1e8454e33a23963d3ae5e6bf4" target="id-0e707a07fa7a406a9aa67d1d14ab3132" archimateRelationship="id-a79b6c4f286f4279999dd3c3276e5362"/>
+        </child>
+      </child>
+      <child xsi:type="archimate:Group" id="id-971fbe3c963944e68b4355fa2ff4440b" name="Drivers" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#5c5c5c" textAlignment="1" fillColor="#d2d7d7">
+        <bounds x="96" y="252" width="1081" height="169"/>
+        <child xsi:type="archimate:DiagramObject" id="id-0e707a07fa7a406a9aa67d1d14ab3132" targetConnections="id-797fb48ed5924684844344b09e229258" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#5c5c5c" fillColor="#ccccff" archimateElement="id-cd749b32c56d4054a6d1b9231d41c974">
+          <bounds x="432" y="65" width="277" height="40"/>
+        </child>
+      </child>
+      <child xsi:type="archimate:Group" id="id-6a27e8ff32d34fbb8fecfe6f754351ce" name="Planes de Acción" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#5c5c5c" textAlignment="1" fillColor="#d2d7d7">
+        <bounds x="96" y="888" width="1117" height="301"/>
+        <child xsi:type="archimate:DiagramObject" id="id-990ef265aba046e2814b661ca117510a" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#5c5c5c" fillColor="#f5deaa" archimateElement="id-243de2b263264cc0bdf2dcb1b386fac7">
+          <bounds x="468" y="60" width="249" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-04ece3e42d9440abb6de19999d3746ac" font="1|Lucida Grande|12.0|0|COCOA|1|" fontColor="#000000" lineColor="#000000" source="id-990ef265aba046e2814b661ca117510a" target="id-fe6ccceb7177433f93e87ceb50028958" archimateRelationship="id-cb67062b5147478a85000b147f3f3f0a"/>
+        </child>
+      </child>
+    </element>
+  </folder>
+</archimate:model>
