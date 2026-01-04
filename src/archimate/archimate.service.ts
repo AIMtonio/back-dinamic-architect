@@ -1,34 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { CreateArchimateDto } from './dto/create-archimate.dto';
-import { UpdateArchimateDto } from './dto/update-archimate.dto';
 import * as fs from 'fs';
 import * as XLSX from 'xlsx';
 import { randomUUID } from 'crypto';
-
-type ElementRow = {
-  id: string;
-  name: string;
-  type: string;   // ArchiMate type (e.g., ApplicationComponent)
-  layer?: string; // optional
-};
-
-type RelationRow = {
-  id: string;
-  source: string; // element id
-  target: string; // element id
-  type: string;   // ArchiMate relationship (e.g., Serving)
-};
 
 @Injectable()
 export class ArchimateService {
 
   private generateUniqueId(): string {
     return randomUUID().replace(/-/g, '');
-  }
-
-
-  remove(id: number) {
-    return `This action removes a #${id} archimate`;
   }
 
   generateReport(filePath?: string, outPath = 'archimate-report.xml') {
