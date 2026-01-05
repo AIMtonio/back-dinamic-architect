@@ -1,35 +1,40 @@
 import { Injectable } from '@nestjs/common';
-import { CreateArchimateDto } from './dto/create-archimate.dto';
-import { UpdateArchimateDto } from './dto/update-archimate.dto';
 import * as fs from 'fs';
 import * as XLSX from 'xlsx';
-
-type ElementRow = {
-  id: string;
-  name: string;
-  type: string;   // ArchiMate type (e.g., ApplicationComponent)
-  layer?: string; // optional
-};
-
-type RelationRow = {
-  id: string;
-  source: string; // element id
-  target: string; // element id
-  type: string;   // ArchiMate relationship (e.g., Serving)
-};
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class ArchimateService {
 
-
-  remove(id: number) {
-    return `This action removes a #${id} archimate`;
+  private generateUniqueId(): string {
+    return randomUUID().replace(/-/g, '');
   }
 
-  generateReport(outPath = 'archimate-report.xml') {
+  generateReport(filePath?: string, outPath = 'archimate-report.xml') {
+    console.log('Generating ArchiMate report...');
+    filePath = 'src/data/input/business_actors.xlsx';
+    let businessActorsXml = ``;
+    let idUnique;
+
+    if (filePath) {
+      const wb = XLSX.readFile(filePath);
+      const businessActorsSheet = wb.Sheets['BusinessActors'];
+      if (businessActorsSheet) {
+        const businessActors: { id: string; name: string }[] = XLSX.utils.sheet_to_json(businessActorsSheet);
+        businessActorsXml = businessActors.map(actor => {
+        const id = actor.id || this.generateUniqueId();
+        idUnique = id;
+        console.log('Business Actor Row:', id);
+          return `
+            <element identifier="id-${id}" xsi:type="BusinessActor">
+              <name xml:lang="es">${escapeXml(actor.name)}</name>
+            </element>`;
+        }).join('');
+      }
+      console.log('businessActorsXml:', businessActorsXml);
+    }
 
     const header = `
-      <?xml version="1.0" encoding="UTF-8"?>
         <model xmlns="http://www.opengroup.org/xsd/archimate/3.0/" 
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
           xsi:schemaLocation="http://www.opengroup.org/xsd/archimate/3.0/ 
@@ -41,10 +46,7 @@ export class ArchimateService {
         <elements>
           <element identifier="id-243de2b263264cc0bdf2dcb1b386fac7" xsi:type="CourseOfAction">
             <name xml:lang="es">Brindar un flujo denominado Prestamos gestionado desde la App Macropay</name>
-          </element>
-          <element identifier="id-5a3a319e3b234a24861d35556ed05144" xsi:type="BusinessActor">
-            <name xml:lang="es">Aplicaciones</name>
-          </element>
+          </element>${businessActorsXml}
           <element identifier="id-fa3f6e20a7fa40deb769cda66e5e64d2" xsi:type="Principle">
             <name xml:lang="es">Implementar la adquisición de préstamos desde la aplicación de Macropay</name>
           </element>
@@ -67,7 +69,7 @@ export class ArchimateService {
           </item>
           <item>
             <label xml:lang="es">Business</label>
-            <item identifierRef="id-5a3a319e3b234a24861d35556ed05144" />
+            <item identifierRef="id-${idUnique}" />
           </item>
           <item>
             <label xml:lang="es">Motivation</label>
@@ -101,7 +103,7 @@ export class ArchimateService {
                 <color r="0" g="0" b="0" />
               </font>
             </style>
-            <node identifier="id-46e67a4982274bb283182f9e66112646" elementRef="id-5a3a319e3b234a24861d35556ed05144" xsi:type="Element" x="264" y="120" w="120" h="55">
+            <node identifier="id-46e67a4982274bb283182f9e66112646" elementRef="id-${idUnique}" xsi:type="Element" x="264" y="120" w="120" h="55">
               <style>
                 <fillColor r="255" g="255" b="181" a="100" />
                 <lineColor r="92" g="92" b="92" a="100" />
@@ -225,4 +227,12 @@ export class ArchimateService {
     return { message: 'Reporte ArchiMate generado', file: path+outPath };
   }
   
+}
+
+function escapeXml(str: string) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
