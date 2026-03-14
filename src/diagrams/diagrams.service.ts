@@ -43,12 +43,11 @@ export class DiagramsService {
   async generateDiagramFromExcel() {
 
     try{
-      const ruta = 'src/data/Libro1.xlsx';
+      const ruta = 'src/data/input/Libro1.xlsx';
       const filePath = ruta;
 
       //Valida si el archivo existe
       if (!fs.existsSync(filePath)) {
-        return 'Archivo no existe';
         throw new Error(`El archivo ${filePath} no existe.`);
       }
 
