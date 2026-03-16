@@ -9,10 +9,10 @@
           <element identifier="id-243de2b263264cc0bdf2dcb1b386fac7" xsi:type="CourseOfAction">
             <name xml:lang="es">Brindar un flujo denominado Prestamos gestionado desde la App Macropay</name>
           </element>
-            <element identifier="id-3719404dfc4c461f96cd1719ba378a89" xsi:type="BusinessActor">
+            <element identifier="id-a172670d78744d30b35e1eb0d126945a" xsi:type="BusinessActor">
               <name xml:lang="es">TD</name>
             </element>
-            <element identifier="id-ad1d29e4c5ca4b0296ab59034896d390" xsi:type="BusinessActor">
+            <element identifier="id-266712a94c1d46f69d4498feec13e54e" xsi:type="BusinessActor">
               <name xml:lang="es">Comercial</name>
             </element>
           <element identifier="id-fa3f6e20a7fa40deb769cda66e5e64d2" xsi:type="Principle">
@@ -37,7 +37,7 @@
           </item>
           <item>
             <label xml:lang="es">Business</label>
-            <item identifierRef="id-ad1d29e4c5ca4b0296ab59034896d390" />
+            <item identifierRef="id-266712a94c1d46f69d4498feec13e54e" />
           </item>
           <item>
             <label xml:lang="es">Motivation</label>
@@ -69,7 +69,7 @@
                 <color r="0" g="0" b="0" />
               </font>
             </style>
-            <node identifier="id-46e67a4982274bb283182f9e66112646" elementRef="id-ad1d29e4c5ca4b0296ab59034896d390" xsi:type="Element" x="264" y="120" w="120" h="55">
+            <node identifier="id-46e67a4982274bb283182f9e66112646" elementRef="id-266712a94c1d46f69d4498feec13e54e" xsi:type="Element" x="264" y="120" w="120" h="55">
               <style>
                 <fillColor r="255" g="255" b="181" a="100" />
                 <lineColor r="92" g="92" b="92" a="100" />

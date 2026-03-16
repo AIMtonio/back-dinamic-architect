@@ -1,4 +1,3 @@
-// src/drawio/drawio.controller.ts
 import { Controller, Post, Body, Get } from '@nestjs/common';
 import { DiagramsService } from './diagrams.service';
 
@@ -11,14 +10,19 @@ export class DiagramsController {
     return this.drawioService.generateDiagram(body.components);
   }*/
 
-  @Get('from-file')
-  generateFromFile() {
-    return this.drawioService.generateDiagramFromFile('components.json');
+  @Post('from-json')
+  async generateFromJson(@Body() payload: any) {
+    return await this.drawioService.generateDiagramFromJson(payload);
   }
 
   @Get('from-excel')
   async generateDiagramFromExcel() {
     return await this.drawioService.generateDiagramFromExcel();
+  }
+
+  @Get('hola')
+  async generateDiagramFromComponents() {
+    return 'Hola desde el controlador de diagramas!';
   }
 
 }
