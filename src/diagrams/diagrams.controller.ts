@@ -20,4 +20,9 @@ export class DiagramsController {
     return await this.drawioService.generateDiagramFromExcel();
   }
 
+  @Get('hola')
+  async generateDiagramFromComponents() {
+    return 'Hola desde el controlador de diagramas!';
+  }
+
 }
