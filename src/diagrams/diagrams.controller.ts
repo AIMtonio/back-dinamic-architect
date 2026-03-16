@@ -22,7 +22,7 @@ export class DiagramsController {
 
   @Get('hola')
   async generateDiagramFromComponents() {
-    return 'Hola desde el controlador de diagramas!';
+    return 'Hola desde el controlador de diagramas!!!';
   }
 
 }
