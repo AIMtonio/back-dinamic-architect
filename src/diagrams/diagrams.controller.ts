@@ -11,8 +11,8 @@ export class DiagramsController {
   }*/
 
   @Post('from-json')
-  generateFromJson(@Body() payload: any) {
-    return this.drawioService.generateDiagramFromJson(payload);
+  async generateFromJson(@Body() payload: any) {
+    return await this.drawioService.generateDiagramFromJson(payload);
   }
 
   @Get('from-excel')
