@@ -8,11 +8,10 @@ export class ArchimateController {
   constructor(private readonly archimateService: ArchimateService) {}
 
   @Get('from-excel')
-  generate(
-    @Query('file') file = 'src/data/input/archimate.xlsx',
-    @Query('out') out = 'src/data/input/archimate-model.xml',
+  async generate(
+    @Query('file') file = 'src/data/input/business_actors.xlsx',
+    @Query('out') out = 'archimate-model.xml',
   ) {
-    //return this.archimateService.generateFromExcel(file, out);
-    return this.archimateService.generateReport();
+    return await this.archimateService.generateReport(file, out);
   }
 }

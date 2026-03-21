@@ -1,0 +1,377 @@
+
+        <model xmlns="http://www.opengroup.org/xsd/archimate/3.0/" 
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+          xsi:schemaLocation="http://www.opengroup.org/xsd/archimate/3.0/ 
+          http://www.opengroup.org/xsd/archimate/3.1/archimate3_Diagram.xsd" 
+            identifier="id-d3f201552bc044d7bfb89d35b5819c3e">
+      <name xml:lang="es">Diagrama Empresarial</name>
+        <elements>
+          
+            <element identifier="id-8437d379582444aab4ef61e3603efb86" xsi:type="CourseOfAction">
+              <name xml:lang="es">texto plan</name>
+            </element>
+            <element identifier="id-0eceb1a18cf14c3b8fcd2fce0ab669f6" xsi:type="CourseOfAction">
+              <name xml:lang="es">texto plan 2</name>
+            </element>
+            <element identifier="id-c4dad89f445541e4bd5af4cc5617c9af" xsi:type="CourseOfAction">
+              <name xml:lang="es">texto plan 3</name>
+            </element>
+            <element identifier="id-cf808b4a38b142d0ae17e08c3af2b0e2" xsi:type="CourseOfAction">
+              <name xml:lang="es">texto plan 4</name>
+            </element>
+            <element identifier="id-fe9c29454b8141baae25dcbc592fcd71" xsi:type="CourseOfAction">
+              <name xml:lang="es">texto plan 5</name>
+            </element>
+            <element identifier="id-4e8414c4c9a34af19f688782ea7e0b96" xsi:type="CourseOfAction">
+              <name xml:lang="es">texto plan 6</name>
+            </element>
+            <element identifier="id-977a9602a2bb42519a98f45714d47ba1" xsi:type="CourseOfAction">
+              <name xml:lang="es">texto plan 7</name>
+            </element>
+            <element identifier="id-cf7f0b39e81e43a9915eaf0a3371a4a3" xsi:type="CourseOfAction">
+              <name xml:lang="es">texto plan 8</name>
+            </element>
+            <element identifier="id-bc95253793bf4d0a8a260e766f4edd31" xsi:type="CourseOfAction">
+              <name xml:lang="es">texto plan 9</name>
+            </element>
+            <element identifier="id-d8533373e2734024b72c012c29c8531a" xsi:type="CourseOfAction">
+              <name xml:lang="es">texto plan 10</name>
+            </element>
+            <element identifier="id-e2c8f75348844e3482b9d5de92b3b90a" xsi:type="CourseOfAction">
+              <name xml:lang="es">texto plan 11</name>
+            </element>
+            <element identifier="id-3927a517b9024beeb089f9112cd48c5b" xsi:type="CourseOfAction">
+              <name xml:lang="es">texto plan 12</name>
+            </element>
+            <element identifier="id-2b1089e19a8a4b1286867dc7bf5a90f6" xsi:type="CourseOfAction">
+              <name xml:lang="es">texto plan 13</name>
+            </element>
+            <element identifier="id-2449d725310c42148d8c19d625073823" xsi:type="BusinessActor">
+              <name xml:lang="es">TD</name>
+            </element>
+            <element identifier="id-05631412ec924130bb29e427f31a443e" xsi:type="BusinessActor">
+              <name xml:lang="es">Comercial</name>
+            </element>
+            <element identifier="id-a35c27f25beb4448b49ade7fb345bbe2" xsi:type="BusinessActor">
+              <name xml:lang="es">Aplicaciones</name>
+            </element>
+            <element identifier="id-8aab09bfa5eb45b8895011d2fe18edb3" xsi:type="Principle">
+              <name xml:lang="es">texto resultados</name>
+            </element>
+            <element identifier="id-f61039f3f31f44ad8d3a5403be697b6e" xsi:type="Principle">
+              <name xml:lang="es">texto resultados 2</name>
+            </element>
+            <element identifier="id-6262b59f9201473abaf2aba9085a2591" xsi:type="Goal">
+              <name xml:lang="es">texto goal</name>
+            </element>
+            <element identifier="id-8cc60a8644294cb09449dd55e8f87c85" xsi:type="Goal">
+              <name xml:lang="es">texto goal 2</name>
+            </element>
+            <element identifier="id-86906f75b4f24f11975188069a38562f" xsi:type="Driver">
+              <name xml:lang="es">texto driver</name>
+            </element>
+            <element identifier="id-aa0bcd4507eb4c199d607ec5441d655e" xsi:type="Driver">
+              <name xml:lang="es">texto driver 2</name>
+            </element>
+        </elements>
+        <organizations>
+          <item>
+            <label xml:lang="es">Strategy</label>
+            
+            <item identifierRef="id-8437d379582444aab4ef61e3603efb86" />
+            <item identifierRef="id-0eceb1a18cf14c3b8fcd2fce0ab669f6" />
+            <item identifierRef="id-c4dad89f445541e4bd5af4cc5617c9af" />
+            <item identifierRef="id-cf808b4a38b142d0ae17e08c3af2b0e2" />
+            <item identifierRef="id-fe9c29454b8141baae25dcbc592fcd71" />
+            <item identifierRef="id-4e8414c4c9a34af19f688782ea7e0b96" />
+            <item identifierRef="id-977a9602a2bb42519a98f45714d47ba1" />
+            <item identifierRef="id-cf7f0b39e81e43a9915eaf0a3371a4a3" />
+            <item identifierRef="id-bc95253793bf4d0a8a260e766f4edd31" />
+            <item identifierRef="id-d8533373e2734024b72c012c29c8531a" />
+            <item identifierRef="id-e2c8f75348844e3482b9d5de92b3b90a" />
+            <item identifierRef="id-3927a517b9024beeb089f9112cd48c5b" />
+            <item identifierRef="id-2b1089e19a8a4b1286867dc7bf5a90f6" />
+          </item>
+          <item>
+            <label xml:lang="es">Business</label>
+            
+            <item identifierRef="id-2449d725310c42148d8c19d625073823" />
+            <item identifierRef="id-05631412ec924130bb29e427f31a443e" />
+            <item identifierRef="id-a35c27f25beb4448b49ade7fb345bbe2" />
+          </item>
+          <item>
+            <label xml:lang="es">Motivation</label>
+            
+            <item identifierRef="id-8aab09bfa5eb45b8895011d2fe18edb3" />
+            <item identifierRef="id-f61039f3f31f44ad8d3a5403be697b6e" />
+            <item identifierRef="id-6262b59f9201473abaf2aba9085a2591" />
+            <item identifierRef="id-8cc60a8644294cb09449dd55e8f87c85" />
+            <item identifierRef="id-86906f75b4f24f11975188069a38562f" />
+            <item identifierRef="id-aa0bcd4507eb4c199d607ec5441d655e" />
+          </item>
+          <item>
+            <label xml:lang="es">Views</label>
+            <item identifierRef="id-7598903c01d3468eae229cdf897ae17f" />
+          </item>
+        </organizations>
+    <views>
+      <diagrams>
+        <view identifier="id-7598903c01d3468eae229cdf897ae17f" xsi:type="Diagram">
+          <name xml:lang="es">Diagrama Empresarial</name>
+          <node identifier="id-31e2edb99faf4a369aacdb19e00e6d1e" x="96" y="24" w="484" h="125" xsi:type="Container">
+            <label xml:lang="es">Involucrados</label>
+            <style>
+              <fillColor r="210" g="215" b="215" a="100" />
+              <lineColor r="92" g="92" b="92" a="100" />
+              <font name="Lucida Grande" size="12">
+                <color r="0" g="0" b="0" />
+              </font>
+            </style>
+            
+            <node identifier="id-d1fbdc8376164ccf8d44c87a3b5bda82" elementRef="id-2449d725310c42148d8c19d625073823" xsi:type="Element" x="112" y="74" w="140" h="55">
+              <style>
+                <fillColor r="255" g="255" b="181" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+            <node identifier="id-428083f8e4aa4783bd3e215137df3a22" elementRef="id-05631412ec924130bb29e427f31a443e" xsi:type="Element" x="268" y="74" w="140" h="55">
+              <style>
+                <fillColor r="255" g="255" b="181" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+            <node identifier="id-27391538e536465f987e630d0bad9f11" elementRef="id-a35c27f25beb4448b49ade7fb345bbe2" xsi:type="Element" x="424" y="74" w="140" h="55">
+              <style>
+                <fillColor r="255" g="255" b="181" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+          </node>
+          <node identifier="id-1e0895b287ad4c1b815206b33740fbfa" x="96" y="450" w="384" h="125" xsi:type="Container">
+            <label xml:lang="es">Principales Resultados Esperados</label>
+            <style>
+              <fillColor r="210" g="215" b="215" a="100" />
+              <lineColor r="92" g="92" b="92" a="100" />
+              <font name="Lucida Grande" size="12">
+                <color r="0" g="0" b="0" />
+              </font>
+            </style>
+            
+            <node identifier="id-8d57d0a3150446ea981e876a22e85d6d" elementRef="id-8aab09bfa5eb45b8895011d2fe18edb3" xsi:type="Element" x="112" y="500" w="160" h="55">
+              <style>
+                <fillColor r="204" g="204" b="255" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+            <node identifier="id-6aef1b5280b94f038747ea9bb3fdee69" elementRef="id-f61039f3f31f44ad8d3a5403be697b6e" xsi:type="Element" x="288" y="500" w="176" h="55">
+              <style>
+                <fillColor r="204" g="204" b="255" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+          </node>
+          <node identifier="id-22e7390f894b4786bbd41027156eafb9" x="96" y="307" w="328" h="119" xsi:type="Container">
+            <label xml:lang="es">Objetivos a lograr</label>
+            <style>
+              <fillColor r="210" g="215" b="215" a="100" />
+              <lineColor r="92" g="92" b="92" a="100" />
+              <font name="Lucida Grande" size="12">
+                <color r="0" g="0" b="0" />
+              </font>
+            </style>
+            
+            <node identifier="id-040d5d9288c042c2a777b15247996bb2" elementRef="id-6262b59f9201473abaf2aba9085a2591" xsi:type="Element" x="112" y="357" w="140" h="49">
+              <style>
+                <fillColor r="204" g="204" b="255" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+            <node identifier="id-0c5cfd81db1247119c59d8322f688acb" elementRef="id-8cc60a8644294cb09449dd55e8f87c85" xsi:type="Element" x="268" y="357" w="140" h="49">
+              <style>
+                <fillColor r="204" g="204" b="255" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+          </node>
+          <node identifier="id-971fbe3c963944e68b4355fa2ff4440b" x="96" y="173" w="332" h="110" xsi:type="Container">
+            <label xml:lang="es">Drivers</label>
+            <style>
+              <fillColor r="210" g="215" b="215" a="100" />
+              <lineColor r="92" g="92" b="92" a="100" />
+              <font name="Lucida Grande" size="12">
+                <color r="0" g="0" b="0" />
+              </font>
+            </style>
+            
+            <node identifier="id-a6b2361f970f4be39492c04f8731a787" elementRef="id-86906f75b4f24f11975188069a38562f" xsi:type="Element" x="112" y="223" w="140" h="40">
+              <style>
+                <fillColor r="204" g="204" b="255" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+            <node identifier="id-1083b1b32dd041efb3ece1ac8e22b903" elementRef="id-aa0bcd4507eb4c199d607ec5441d655e" xsi:type="Element" x="268" y="223" w="144" h="40">
+              <style>
+                <fillColor r="204" g="204" b="255" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+          </node>
+          <node identifier="id-6a27e8ff32d34fbb8fecfe6f754351ce" x="96" y="599" w="2044" h="125" xsi:type="Container">
+            <label xml:lang="es">Planes de Acción</label>
+            <style>
+              <fillColor r="210" g="215" b="215" a="100" />
+              <lineColor r="92" g="92" b="92" a="100" />
+              <font name="Lucida Grande" size="12">
+                <color r="0" g="0" b="0" />
+              </font>
+            </style>
+            
+            <node identifier="id-e24f1c260d79434a95b0ebaa03799100" elementRef="id-8437d379582444aab4ef61e3603efb86" xsi:type="Element" x="112" y="649" w="140" h="55">
+              <style>
+                <fillColor r="245" g="222" b="170" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+            <node identifier="id-be834fc328be45e7af1778d60236175b" elementRef="id-0eceb1a18cf14c3b8fcd2fce0ab669f6" xsi:type="Element" x="268" y="649" w="140" h="55">
+              <style>
+                <fillColor r="245" g="222" b="170" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+            <node identifier="id-5e4bbf545f064d2a88c69d063832dfe8" elementRef="id-c4dad89f445541e4bd5af4cc5617c9af" xsi:type="Element" x="424" y="649" w="140" h="55">
+              <style>
+                <fillColor r="245" g="222" b="170" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+            <node identifier="id-2289c252b39e431482476f035657a376" elementRef="id-cf808b4a38b142d0ae17e08c3af2b0e2" xsi:type="Element" x="580" y="649" w="140" h="55">
+              <style>
+                <fillColor r="245" g="222" b="170" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+            <node identifier="id-8db18ec092c249bf93734c6e4b6aaa97" elementRef="id-fe9c29454b8141baae25dcbc592fcd71" xsi:type="Element" x="736" y="649" w="140" h="55">
+              <style>
+                <fillColor r="245" g="222" b="170" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+            <node identifier="id-d75a0629cf0b4020b6eb1acf8266f482" elementRef="id-4e8414c4c9a34af19f688782ea7e0b96" xsi:type="Element" x="892" y="649" w="140" h="55">
+              <style>
+                <fillColor r="245" g="222" b="170" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+            <node identifier="id-17c92f924b3f4de3bc1072bf29d2e61b" elementRef="id-977a9602a2bb42519a98f45714d47ba1" xsi:type="Element" x="1048" y="649" w="140" h="55">
+              <style>
+                <fillColor r="245" g="222" b="170" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+            <node identifier="id-3e82ff54132c4cfe88e663c175e00656" elementRef="id-cf7f0b39e81e43a9915eaf0a3371a4a3" xsi:type="Element" x="1204" y="649" w="140" h="55">
+              <style>
+                <fillColor r="245" g="222" b="170" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+            <node identifier="id-f31ddb43aa724160a1194092f388daa6" elementRef="id-bc95253793bf4d0a8a260e766f4edd31" xsi:type="Element" x="1360" y="649" w="140" h="55">
+              <style>
+                <fillColor r="245" g="222" b="170" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+            <node identifier="id-f225d0f2c4bc4fedb8141624c374bc2f" elementRef="id-d8533373e2734024b72c012c29c8531a" xsi:type="Element" x="1516" y="649" w="140" h="55">
+              <style>
+                <fillColor r="245" g="222" b="170" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+            <node identifier="id-4b926b7b6373426dabfce26e2e1e29dc" elementRef="id-e2c8f75348844e3482b9d5de92b3b90a" xsi:type="Element" x="1672" y="649" w="140" h="55">
+              <style>
+                <fillColor r="245" g="222" b="170" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+            <node identifier="id-79703b2d78ff43f9b1c16c81dcfe0458" elementRef="id-3927a517b9024beeb089f9112cd48c5b" xsi:type="Element" x="1828" y="649" w="140" h="55">
+              <style>
+                <fillColor r="245" g="222" b="170" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+            <node identifier="id-9cbf5691059c4fb7b5d97c88a243ae27" elementRef="id-2b1089e19a8a4b1286867dc7bf5a90f6" xsi:type="Element" x="1984" y="649" w="140" h="55">
+              <style>
+                <fillColor r="245" g="222" b="170" a="100" />
+                <lineColor r="92" g="92" b="92" a="100" />
+                <font name="Lucida Grande" size="12">
+                  <color r="0" g="0" b="0" />
+                </font>
+              </style>
+            </node>
+          </node>
+        </view>
+          </diagrams>
+        </views>
+      </model>
