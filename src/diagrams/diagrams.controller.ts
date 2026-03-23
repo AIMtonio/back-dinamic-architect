@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query } from '@nestjs/common';
 import { DiagramsService } from './diagrams.service';
 import { GenerateDiagramFromJsonDto } from './dto/generate-diagram-from-json.dto';
 
@@ -31,9 +31,16 @@ export class DiagramsController {
     return await this.drawioService.validateDiagramFromExcel();
   }
 
-  @Get('hola')
-  async generateDiagramFromComponents() {
-    return 'Hola desde el controlador de diagramas!!!';
+  @Get('google-drive/auth-url')
+  getGoogleDriveAuthUrl() {
+    return this.drawioService.getGoogleDriveAuthUrl();
+  }
+
+  @Get('google-drive/exchange-code')
+  async exchangeGoogleDriveCode(
+    @Query('code') code = '',
+  ) {
+    return await this.drawioService.exchangeGoogleDriveCode(code);
   }
 
 }

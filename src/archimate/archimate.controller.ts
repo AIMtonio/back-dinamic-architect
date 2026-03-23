@@ -46,4 +46,16 @@ export class ArchimateController {
 
     return await this.archimateService.validateReportFromJson(body, out);
   }
+
+  @Get('google-drive/auth-url')
+  getGoogleDriveAuthUrl() {
+    return this.archimateService.getGoogleDriveAuthUrl();
+  }
+
+  @Get('google-drive/exchange-code')
+  async exchangeGoogleDriveCode(
+    @Query('code') code = '',
+  ) {
+    return await this.archimateService.exchangeGoogleDriveCode(code);
+  }
 }

@@ -36,6 +36,15 @@ Variables disponibles:
 - `DIAGRAM_OUTPUT_DIR`: carpeta base de salida Diagram.
 - `DIAGRAM_OUTPUT_EXCEL_FILE`: nombre default de salida draw.io desde Excel.
 - `DIAGRAM_OUTPUT_JSON_FILE`: nombre default de salida draw.io desde JSON.
+- `GOOGLE_DRIVE_UPLOAD_ON_FINISH`: si es `true`, sube automaticamente el archivo Archimate generado.
+- `GOOGLE_DRIVE_FOLDER_ID`: id de carpeta destino en Google Drive.
+- `GOOGLE_DRIVE_CLIENT_EMAIL`: correo de service account de Google.
+- `GOOGLE_DRIVE_PRIVATE_KEY`: private key del service account (usar `\\n` en una sola linea).
+- `GOOGLE_DRIVE_PUBLIC_READ`: si es `true`, publica permiso de lectura para cualquier persona con enlace.
+- `GOOGLE_OAUTH_CLIENT_ID`: client id OAuth2 de Google (usuario).
+- `GOOGLE_OAUTH_CLIENT_SECRET`: client secret OAuth2 de Google (usuario).
+- `GOOGLE_OAUTH_REDIRECT_URI`: redirect URI registrada en Google Cloud.
+- `GOOGLE_OAUTH_REFRESH_TOKEN`: refresh token del usuario para subir a Google Drive personal.
 
 Compatibilidad:
 
@@ -363,7 +372,38 @@ DIAGRAM_INPUT_EXCEL_PATH=src/data/input/Componentes.xlsx
 DIAGRAM_OUTPUT_DIR=src/data/output
 DIAGRAM_OUTPUT_EXCEL_FILE=diagramaComponentes.drawio
 DIAGRAM_OUTPUT_JSON_FILE=diagramaComponentesJson.drawio
+GOOGLE_DRIVE_UPLOAD_ON_FINISH=false
+GOOGLE_DRIVE_FOLDER_ID=
+GOOGLE_DRIVE_CLIENT_EMAIL=
+GOOGLE_DRIVE_PRIVATE_KEY=
+GOOGLE_DRIVE_PUBLIC_READ=true
+GOOGLE_OAUTH_CLIENT_ID=
+GOOGLE_OAUTH_CLIENT_SECRET=
+GOOGLE_OAUTH_REDIRECT_URI=http://localhost:3000/archimate/google-drive/exchange-code
+GOOGLE_OAUTH_REFRESH_TOKEN=
 ```
+
+## Configuracion Google Drive con cuenta personal (OAuth2)
+
+Si no tienes Unidades compartidas (Shared Drives), usa OAuth2 de usuario.
+
+1. En Google Cloud Console, habilita Google Drive API.
+2. Crea credenciales OAuth Client ID (tipo Web application).
+3. En Authorized redirect URIs agrega:
+   - `http://localhost:3000/archimate/google-drive/exchange-code`
+4. Configura en `.env`:
+   - `GOOGLE_OAUTH_CLIENT_ID`
+   - `GOOGLE_OAUTH_CLIENT_SECRET`
+   - `GOOGLE_OAUTH_REDIRECT_URI`
+   - `GOOGLE_DRIVE_FOLDER_ID`
+   - `GOOGLE_DRIVE_UPLOAD_ON_FINISH=true`
+5. Inicia API y abre:
+   - `GET /archimate/google-drive/auth-url`
+6. Autoriza en Google y copia el `code` que llega al redirect.
+7. El endpoint `GET /archimate/google-drive/exchange-code?code=...` devuelve `refreshToken`.
+8. Guarda ese valor en `GOOGLE_OAUTH_REFRESH_TOKEN`.
+
+Con eso, las generaciones de Archimate subiran automatico a Drive personal.
 
 ## Estado actual de pruebas
 

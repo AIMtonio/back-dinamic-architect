@@ -8,6 +8,10 @@ import {
 } from '@nestjs/common';
 import * as fs from 'fs';
 import * as XLSX from 'xlsx';
+import { randomUUID } from 'crypto';
+import { basename } from 'path';
+import { google } from 'googleapis';
+import { OAuth2Client } from 'google-auth-library';
 
 @Injectable()
 export class DiagramsService {
@@ -17,8 +21,205 @@ export class DiagramsService {
   private readonly outputExcelFile = process.env.DIAGRAM_OUTPUT_EXCEL_FILE || 'diagramaComponentes.drawio';
   private readonly outputJsonFile = process.env.DIAGRAM_OUTPUT_JSON_FILE || 'diagramaComponentesJson.drawio';
 
+  // Google Drive config (shared with archimate module)
+  private readonly uploadToGoogleDriveOnFinish = process.env.GOOGLE_DRIVE_UPLOAD_ON_FINISH === 'true';
+  private readonly googleDriveFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
+  private readonly googleDriveClientEmail = process.env.GOOGLE_DRIVE_CLIENT_EMAIL;
+  private readonly googleDrivePrivateKey = process.env.GOOGLE_DRIVE_PRIVATE_KEY;
+  private readonly googleDrivePublicRead = process.env.GOOGLE_DRIVE_PUBLIC_READ !== 'false';
+  private readonly googleOAuthClientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+  private readonly googleOAuthClientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+  private readonly googleOAuthRedirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI;
+  private readonly googleOAuthRefreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
+
+  private generateUniqueId(): string {
+    return randomUUID().replace(/-/g, '');
+  }
+
   private buildOutputPath(fileName: string): string {
     return `${this.outputDir}/${fileName}`;
+  }
+
+  private hasServiceAccountGoogleDriveConfig(): boolean {
+    return Boolean(this.googleDriveClientEmail && this.googleDrivePrivateKey);
+  }
+
+  private hasGoogleOAuthBaseConfig(): boolean {
+    return Boolean(this.googleOAuthClientId && this.googleOAuthClientSecret && this.googleOAuthRedirectUri);
+  }
+
+  private hasGoogleOAuthUploadConfig(): boolean {
+    return Boolean(this.hasGoogleOAuthBaseConfig() && this.googleOAuthRefreshToken);
+  }
+
+  private createGoogleOAuthClient(): OAuth2Client {
+    if (!this.hasGoogleOAuthBaseConfig()) {
+      throw new BadRequestException(
+        'OAuth Google Drive no configurado. Define GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET y GOOGLE_OAUTH_REDIRECT_URI.',
+      );
+    }
+
+    return new google.auth.OAuth2(
+      this.googleOAuthClientId,
+      this.googleOAuthClientSecret,
+      this.googleOAuthRedirectUri,
+    );
+  }
+
+  getGoogleDriveAuthUrl() {
+    const oauth2Client = this.createGoogleOAuthClient();
+    const url = oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      prompt: 'consent',
+      scope: ['https://www.googleapis.com/auth/drive.file'],
+    });
+
+    return {
+      message: 'Abre este URL, autoriza y luego usa el code para obtener refresh token.',
+      authUrl: url,
+    };
+  }
+
+  async exchangeGoogleDriveCode(code: string) {
+    if (!code || typeof code !== 'string') {
+      throw new BadRequestException('El parámetro code es obligatorio.');
+    }
+
+    const oauth2Client = this.createGoogleOAuthClient();
+    const { tokens } = await oauth2Client.getToken(code);
+
+    return {
+      message: 'Código intercambiado correctamente. Guarda GOOGLE_OAUTH_REFRESH_TOKEN en tu .env.',
+      refreshToken: tokens.refresh_token || null,
+      accessToken: tokens.access_token || null,
+      expiryDate: tokens.expiry_date || null,
+      warning: tokens.refresh_token
+        ? null
+        : 'Google no devolvió refresh_token. Repite autorización con prompt=consent y access_type=offline.',
+    };
+  }
+
+  private async uploadFileToGoogleDrive(filePath: string) {
+    if (!this.googleDriveFolderId) {
+      return {
+        uploaded: false,
+        reason: 'Google Drive no configurado. Define GOOGLE_DRIVE_FOLDER_ID.',
+      };
+    }
+
+    if (!this.hasGoogleOAuthUploadConfig() && !this.hasServiceAccountGoogleDriveConfig()) {
+      return {
+        uploaded: false,
+        reason: 'Google Drive no configurado. Define OAuth (GOOGLE_OAUTH_*) o Service Account (GOOGLE_DRIVE_CLIENT_EMAIL/PRIVATE_KEY).',
+      };
+    }
+
+    let auth: OAuth2Client | InstanceType<typeof google.auth.JWT>;
+
+    if (this.hasGoogleOAuthUploadConfig()) {
+      const oauth2Client = this.createGoogleOAuthClient();
+      oauth2Client.setCredentials({ refresh_token: this.googleOAuthRefreshToken });
+      auth = oauth2Client;
+    } else {
+      auth = new google.auth.JWT({
+        email: this.googleDriveClientEmail,
+        key: this.googleDrivePrivateKey?.replace(/\\n/g, '\n'),
+        scopes: ['https://www.googleapis.com/auth/drive'],
+      });
+    }
+
+    const drive = google.drive({ version: 'v3', auth });
+
+    const createResponse = await drive.files.create({
+      requestBody: {
+        name: basename(filePath),
+        parents: this.googleDriveFolderId ? [this.googleDriveFolderId] : undefined,
+      },
+      media: {
+        mimeType: 'application/xml',
+        body: fs.createReadStream(filePath),
+      },
+      supportsAllDrives: true,
+      fields: 'id, webViewLink, webContentLink',
+    });
+
+    const fileId = createResponse.data.id;
+
+    if (fileId && this.googleDrivePublicRead) {
+      await drive.permissions.create({
+        fileId,
+        supportsAllDrives: true,
+        requestBody: {
+          role: 'reader',
+          type: 'anyone',
+        },
+      });
+    }
+
+    const fileResponse = fileId
+      ? await drive.files.get({
+        fileId,
+        supportsAllDrives: true,
+        fields: 'id, webViewLink, webContentLink',
+      })
+      : null;
+
+    return {
+      uploaded: Boolean(fileId),
+      id: fileResponse?.data.id,
+      webViewLink: fileResponse?.data.webViewLink,
+      webContentLink: fileResponse?.data.webContentLink,
+    };
+  }
+
+  private toDiagramApiResponse(
+    outputPath: string,
+    componentsCount: number,
+    uploadResult?: {
+      uploaded?: boolean;
+      id?: string;
+      webViewLink?: string;
+      webContentLink?: string;
+      reason?: string;
+    } | null,
+    uploadAttempted = false,
+  ) {
+    const uploadedToDrive = Boolean(uploadResult?.uploaded);
+
+    return {
+      jsonapi: {
+        version: '1.0',
+      },
+      data: {
+        type: 'diagram-report',
+        id: `id-${this.generateUniqueId()}`,
+        attributes: {
+          message: 'Diagrama generado',
+          file: {
+            name: basename(outputPath),
+            path: outputPath,
+          },
+          components: {
+            count: componentsCount,
+          },
+          delivery: {
+            uploadAttempted,
+            uploadedToDrive,
+            provider: uploadedToDrive ? 'google-drive' : 'local',
+            reason: uploadResult?.reason ?? null,
+            googleDriveFileId: uploadResult?.id ?? null,
+          },
+        },
+        links: {
+          localPath: outputPath,
+          driveViewUrl: uploadResult?.webViewLink ?? null,
+          driveDownloadUrl: uploadResult?.webContentLink ?? null,
+        },
+      },
+      meta: {
+        generatedAt: new Date().toISOString(),
+      },
+    };
   }
 
   private extractComponentsFromPayload(payload: any): { name: string; type: string }[] {
@@ -117,7 +318,7 @@ export class DiagramsService {
     }
   }
 
-  generateDiagramFromComponents(components: { name: string; type: string }[], outputPath = this.buildOutputPath(this.outputExcelFile)) {
+  async generateDiagramFromComponents(components: { name: string; type: string }[], outputPath = this.buildOutputPath(this.outputExcelFile)) {
     if (!Array.isArray(components)) {
       throw new BadRequestException('components debe ser un arreglo');
     }
@@ -175,11 +376,12 @@ export class DiagramsService {
       throw new InternalServerErrorException(`No se pudo escribir el archivo de salida en ${outputPath}.`);
     }
 
-    return {
-      message: `Diagrama generado: ${outputPath}`,
-      file: outputPath,
-      componentsCount: components.length,
-    };
+    if (!this.uploadToGoogleDriveOnFinish) {
+      return this.toDiagramApiResponse(outputPath, components.length, null, false);
+    }
+
+    const uploadResult = await this.uploadFileToGoogleDrive(outputPath);
+    return this.toDiagramApiResponse(outputPath, components.length, uploadResult, true);
   }
 
   async generateDiagramFromJson(payload: any) {
@@ -187,7 +389,7 @@ export class DiagramsService {
 
     console.log('Componentes extraídos:', components);
 
-    return this.generateDiagramFromComponents(components, this.buildOutputPath(this.outputJsonFile));
+    return await this.generateDiagramFromComponents(components, this.buildOutputPath(this.outputJsonFile));
   }
 
   async validateDiagramFromJson(payload: any) {
@@ -208,8 +410,7 @@ export class DiagramsService {
       const filePath = this.defaultInputExcelPath;
 
       const components = this.extractComponentsFromExcel(filePath);
-      const result = this.generateDiagramFromComponents(components, this.buildOutputPath(this.outputExcelFile));
-      return { message: 'diagram.drawio generado desde Excel!', file: result.file };
+      return await this.generateDiagramFromComponents(components, this.buildOutputPath(this.outputExcelFile));
 
     } catch (err) {
       console.error('Error al leer el archivo Excel:', err);
