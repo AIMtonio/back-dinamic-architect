@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ArchimateService } from './archimate.service';
+import { GenerateArchimateFromJsonDto } from './dto/generate-archimate-from-json.dto';
 
 @Controller('archimate')
 export class ArchimateController {
@@ -15,7 +16,7 @@ export class ArchimateController {
 
   @Post('from-json')
   async generateFromJson(
-    @Body() body: Record<string, unknown>,
+    @Body() body: GenerateArchimateFromJsonDto,
   ) {
     const out = typeof body.out === 'string' && body.out.trim().length > 0
       ? body.out

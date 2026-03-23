@@ -1,5 +1,6 @@
 import { Controller, Post, Body, Get } from '@nestjs/common';
 import { DiagramsService } from './diagrams.service';
+import { GenerateDiagramFromJsonDto } from './dto/generate-diagram-from-json.dto';
 
 @Controller('diagram')
 export class DiagramsController {
@@ -11,7 +12,7 @@ export class DiagramsController {
   }*/
 
   @Post('from-json')
-  async generateFromJson(@Body() payload: any) {
+  async generateFromJson(@Body() payload: GenerateDiagramFromJsonDto) {
     return await this.drawioService.generateDiagramFromJson(payload);
   }
 
