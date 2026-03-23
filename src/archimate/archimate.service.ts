@@ -1,4 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import * as fs from 'fs';
 import * as XLSX from 'xlsx';
 import { randomUUID } from 'crypto';
@@ -28,6 +34,10 @@ type ViewNode = {
 
 @Injectable()
 export class ArchimateService {
+
+  private readonly defaultInputExcelPath = process.env.ARCHIMATE_INPUT_EXCEL_PATH || 'src/data/input/business_actors.xlsx';
+  private readonly defaultOutputDir = process.env.ARCHIMATE_OUTPUT_DIR || 'src/data/output';
+  private readonly defaultOutputFile = process.env.ARCHIMATE_DEFAULT_OUTPUT_FILE || 'archimate-model.xml';
 
   private generateUniqueId(): string {
     return randomUUID().replace(/-/g, '');
@@ -322,9 +332,48 @@ export class ArchimateService {
   }
 
   private resolveOutputPath(outPath: string): string {
+    if (typeof outPath !== 'string' || outPath.trim().length === 0) {
+      throw new BadRequestException('El parámetro out debe ser un string no vacío.');
+    }
+
     return outPath.includes('/') || outPath.includes('\\')
       ? outPath
-      : `src/data/output/${outPath}`;
+      : `${this.defaultOutputDir}/${outPath}`;
+  }
+
+  private buildValidationSummary(
+    source: 'excel' | 'json',
+    courses: ArchimateElement[],
+    principles: ArchimateElement[],
+    goals: ArchimateElement[],
+    drivers: ArchimateElement[],
+    businessActors: ArchimateElement[],
+    outPath: string,
+  ) {
+    const normalizedCounts = {
+      courseOfAction: courses.length || 1,
+      businessActor: businessActors.length || 1,
+      principle: principles.length || 1,
+      goal: goals.length || 1,
+      driver: drivers.length || 1,
+    };
+
+    return {
+      message: 'Validacion de ArchiMate exitosa (dry-run).',
+      dryRun: true,
+      source,
+      outputPath: this.resolveOutputPath(outPath),
+      counts: {
+        parsed: {
+          courseOfAction: courses.length,
+          businessActor: businessActors.length,
+          principle: principles.length,
+          goal: goals.length,
+          driver: drivers.length,
+        },
+        normalized: normalizedCounts,
+      },
+    };
   }
 
   private buildAndSaveReport(
@@ -570,15 +619,34 @@ export class ArchimateService {
 
     const outputPath = this.resolveOutputPath(outPath);
 
-    fs.writeFileSync(outputPath, xml, 'utf8');
+    try {
+      fs.writeFileSync(outputPath, xml, 'utf8');
+    } catch {
+      throw new InternalServerErrorException(`No se pudo escribir el reporte en ${outputPath}.`);
+    }
+
     return { message: 'Reporte ArchiMate generado', file: outputPath };
   }
 
-  async generateReport(filePath?: string, outPath = 'archimate-report.xml') {
+  async generateReport(filePath?: string, outPath = this.defaultOutputFile) {
     console.log('Generating ArchiMate report...');
 
-    const inputPath = filePath ?? 'src/data/input/business_actors.xlsx';
-    const workbook = XLSX.readFile(inputPath);
+    const inputPath = filePath ?? this.defaultInputExcelPath;
+    if (!inputPath.endsWith('.xlsx')) {
+      throw new BadRequestException('El archivo de entrada debe tener extensión .xlsx.');
+    }
+
+    if (!fs.existsSync(inputPath)) {
+      throw new NotFoundException(`El archivo ${inputPath} no existe.`);
+    }
+
+    let workbook: XLSX.WorkBook;
+    try {
+      workbook = XLSX.readFile(inputPath);
+    } catch {
+      throw new BadRequestException(`No se pudo leer el archivo Excel ${inputPath}.`);
+    }
+
     console.log(`Excel file: ${inputPath}`);
     console.log(`Sheets detected: ${workbook.SheetNames.join(', ')}`);
 
@@ -617,11 +685,75 @@ export class ArchimateService {
 
     console.log(`Rows loaded -> CourseOfAction total: ${courses.length}, BusinessActor: ${businessActors.length}, Principle: ${principles.length}, Goal: ${goals.length}, Driver: ${drivers.length}`);
 
-    return this.buildAndSaveReport(courses, principles, goals, drivers, businessActors, outPath);
+    try {
+      return this.buildAndSaveReport(courses, principles, goals, drivers, businessActors, outPath);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error interno al generar el reporte ArchiMate desde Excel.');
+    }
   }
 
-  async generateReportFromJson(data: Record<string, unknown>, outPath = 'archimate-report.xml') {
+  async validateReportFromExcel(filePath?: string, outPath = this.defaultOutputFile) {
+    const inputPath = filePath ?? this.defaultInputExcelPath;
+    if (!inputPath.endsWith('.xlsx')) {
+      throw new BadRequestException('El archivo de entrada debe tener extensión .xlsx.');
+    }
+
+    if (!fs.existsSync(inputPath)) {
+      throw new NotFoundException(`El archivo ${inputPath} no existe.`);
+    }
+
+    let workbook: XLSX.WorkBook;
+    try {
+      workbook = XLSX.readFile(inputPath);
+    } catch {
+      throw new BadRequestException(`No se pudo leer el archivo Excel ${inputPath}.`);
+    }
+
+    const coursesFromCourseSheet = this.parseElementsFromSheet(
+      workbook,
+      ['CourseOfActions', 'Course Of Actions', 'CourseOfAction', 'Course Of Action', 'Courses'],
+      'CourseOfAction',
+      ['courseofaction', 'courseofactions'],
+    );
+    const courses = [...coursesFromCourseSheet];
+
+    const principles = this.parseElementsFromSheet(
+      workbook,
+      ['Principles', 'Principle', 'Principios', 'Principio'],
+      'Principle',
+      ['principle', 'principles', 'result', 'results', 'resultado', 'resultados'],
+    );
+    const goals = this.parseElementsFromSheet(
+      workbook,
+      ['Goals', 'Goal', 'Objetivos', 'Objetivo'],
+      'Goal',
+      ['goal', 'goals', 'objetivo', 'objetivos'],
+    );
+    const drivers = this.parseElementsFromSheet(
+      workbook,
+      ['Drivers', 'Driver', 'Impulsores', 'Impulsor'],
+      'Driver',
+      ['driver', 'drivers', 'impulsor', 'impulsores'],
+    );
+    const businessActors = this.parseElementsFromSheet(
+      workbook,
+      ['BusinessActors', 'Business Actor', 'Business Actors', 'ActoresNegocio', 'Actores de Negocio'],
+      'BusinessActor',
+      ['businessactor', 'businessactors', 'actor', 'actors', 'actordenegocio', 'actoresdenegocio'],
+    );
+
+    return this.buildValidationSummary('excel', courses, principles, goals, drivers, businessActors, outPath);
+  }
+
+  async generateReportFromJson(data: Record<string, unknown>, outPath = this.defaultOutputFile) {
     console.log('Generating ArchiMate report from JSON...');
+
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new BadRequestException('El payload debe ser un objeto JSON válido.');
+    }
 
     const courses = this.parseElementsFromJson(
       data,
@@ -656,7 +788,53 @@ export class ArchimateService {
 
     console.log(`Rows loaded -> CourseOfAction total: ${courses.length}, BusinessActor: ${businessActors.length}, Principle: ${principles.length}, Goal: ${goals.length}, Driver: ${drivers.length}`);
 
-    return this.buildAndSaveReport(courses, principles, goals, drivers, businessActors, outPath);
+    try {
+      return this.buildAndSaveReport(courses, principles, goals, drivers, businessActors, outPath);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error interno al generar el reporte ArchiMate desde JSON.');
+    }
+  }
+
+  async validateReportFromJson(data: Record<string, unknown>, outPath = this.defaultOutputFile) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new BadRequestException('El payload debe ser un objeto JSON válido.');
+    }
+
+    const courses = this.parseElementsFromJson(
+      data,
+      ['courseOfActions', 'courseofactions', 'courses', 'courseOfAction', 'course_of_actions', 'cursos', 'acciones'],
+      'CourseOfAction',
+      ['courseofaction', 'courseofactions'],
+    );
+    const principles = this.parseElementsFromJson(
+      data,
+      ['principles', 'principios', 'principle', 'principio'],
+      'Principle',
+      ['principle', 'principles', 'result', 'results', 'resultado', 'resultados'],
+    );
+    const goals = this.parseElementsFromJson(
+      data,
+      ['goals', 'goal', 'objetivos', 'objetivo'],
+      'Goal',
+      ['goal', 'goals', 'objetivo', 'objetivos'],
+    );
+    const drivers = this.parseElementsFromJson(
+      data,
+      ['drivers', 'driver', 'impulsores', 'impulsor'],
+      'Driver',
+      ['driver', 'drivers', 'impulsor', 'impulsores'],
+    );
+    const businessActors = this.parseElementsFromJson(
+      data,
+      ['businessActors', 'businessactors', 'business_actor', 'business_actors', 'actoresNegocio', 'actoresdeNegocio', 'actores'],
+      'BusinessActor',
+      ['businessactor', 'businessactors', 'actor', 'actors', 'actordenegocio', 'actoresdenegocio'],
+    );
+
+    return this.buildValidationSummary('json', courses, principles, goals, drivers, businessActors, outPath);
   }
 }
 

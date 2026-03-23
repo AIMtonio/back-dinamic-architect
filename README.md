@@ -19,6 +19,28 @@ Exponer endpoints HTTP que reciban datos en Excel o JSON y produzcan archivos li
 - fs para escritura de archivos
 - Jest para pruebas unitarias y e2e base
 
+## Configuracion por entorno (.env)
+
+La API toma su configuracion de variables de entorno.
+
+1. Copia [ .env.example ](.env.example) a `.env`.
+2. Ajusta rutas/puerto segun tu entorno local.
+
+Variables disponibles:
+
+- `PORT`: puerto HTTP de NestJS.
+- `ARCHIMATE_INPUT_EXCEL_PATH`: ruta de entrada Excel para Archimate.
+- `ARCHIMATE_OUTPUT_DIR`: carpeta base de salida Archimate.
+- `ARCHIMATE_DEFAULT_OUTPUT_FILE`: nombre default de XML Archimate.
+- `DIAGRAM_INPUT_EXCEL_PATH`: ruta de entrada Excel para Diagram.
+- `DIAGRAM_OUTPUT_DIR`: carpeta base de salida Diagram.
+- `DIAGRAM_OUTPUT_EXCEL_FILE`: nombre default de salida draw.io desde Excel.
+- `DIAGRAM_OUTPUT_JSON_FILE`: nombre default de salida draw.io desde JSON.
+
+Compatibilidad:
+
+- `EXCEL_FILE_PATH` se mantiene como fallback para Diagram si no se define `DIAGRAM_INPUT_EXCEL_PATH`.
+
 ## Estructura general
 
 ```text
@@ -82,7 +104,7 @@ Responsable de construir archivos draw.io (mxGraphModel) con componentes en gril
 
 ## Endpoints y consumos
 
-Base URL local: http://localhost:3000
+Base URL local: `http://localhost:${PORT}` (por default 3000)
 
 ### 1) GET /
 
@@ -171,6 +193,33 @@ Respuesta tipica:
 }
 ```
 
+### 3.1) GET /archimate/from-excel/dry-run
+
+Descripcion: valida lectura y parseo de Excel para Archimate sin generar archivo.
+
+Ejemplo:
+
+```bash
+curl -G "http://localhost:3000/archimate/from-excel/dry-run" \
+   --data-urlencode "file=src/data/input/business_actors.xlsx" \
+   --data-urlencode "out=archimate-model.xml"
+```
+
+### 3.2) POST /archimate/from-json/dry-run
+
+Descripcion: valida payload JSON de Archimate sin escribir XML.
+
+Ejemplo:
+
+```bash
+curl -X POST http://localhost:3000/archimate/from-json/dry-run \
+   -H "Content-Type: application/json" \
+   -d '{
+      "businessActors": [{ "name": "Gerencia" }],
+      "drivers": ["Cumplimiento regulatorio"]
+   }'
+```
+
 ### 4) POST /diagram/from-json
 
 Descripcion: genera draw.io desde payload JSON.
@@ -224,8 +273,8 @@ Descripcion: genera draw.io desde Excel.
 
 Reglas actuales:
 
-- Ruta default: src/data/input/Componentes.xlsx
-- Puede sobrescribirse con variable de entorno EXCEL_FILE_PATH
+- Ruta default: `DIAGRAM_INPUT_EXCEL_PATH`
+- Puede usar fallback `EXCEL_FILE_PATH`
 - Debe existir y tener extension .xlsx
 - Debe incluir cabeceras name y type
 
@@ -242,6 +291,31 @@ Respuesta tipica:
    "message": "diagram.drawio generado desde Excel!",
    "file": "src/data/output/diagramaComponentes.drawio"
 }
+```
+
+### 5.1) GET /diagram/from-excel/dry-run
+
+Descripcion: valida el archivo Excel de componentes sin generar draw.io.
+
+Ejemplo:
+
+```bash
+curl -X GET http://localhost:3000/diagram/from-excel/dry-run
+```
+
+### 4.1) POST /diagram/from-json/dry-run
+
+Descripcion: valida payload JSON para draw.io sin escribir archivo.
+
+Ejemplo:
+
+```bash
+curl -X POST http://localhost:3000/diagram/from-json/dry-run \
+   -H "Content-Type: application/json" \
+   -d '{
+      "componentes": ["API", "DB"],
+      "tipo": ["lambda", "eks"]
+   }'
 ```
 
 ### 6) GET /diagram/hola
@@ -278,32 +352,47 @@ bun run test
 bun run test:e2e
 ```
 
+## Ejemplo rapido de .env
+
+```dotenv
+PORT=3000
+ARCHIMATE_INPUT_EXCEL_PATH=src/data/input/business_actors.xlsx
+ARCHIMATE_OUTPUT_DIR=src/data/output
+ARCHIMATE_DEFAULT_OUTPUT_FILE=archimate-model.xml
+DIAGRAM_INPUT_EXCEL_PATH=src/data/input/Componentes.xlsx
+DIAGRAM_OUTPUT_DIR=src/data/output
+DIAGRAM_OUTPUT_EXCEL_FILE=diagramaComponentes.drawio
+DIAGRAM_OUTPUT_JSON_FILE=diagramaComponentesJson.drawio
+```
+
 ## Estado actual de pruebas
 
 - Hay pruebas base de definicion para controladores/servicios.
 - Hay e2e basico del endpoint raiz.
-- No hay cobertura funcional de generacion XML/drawio, validaciones ni errores de negocio.
+- No hay cobertura funcional de generacion XML/drawio ni de casos de error de negocio.
 
 ## Observaciones tecnicas encontradas
 
-- DTOs y entidades estan como placeholders sin validacion.
-- Errores de entrada se lanzan con Error generico en servicios (sin HttpException).
+- Ya hay validaciones de payload con class-validator/class-transformer en endpoints JSON.
+- Ya se estandarizo el manejo de errores con HttpException y codigos HTTP claros.
+- Ya existen endpoints dry-run para validacion previa sin escritura de archivos.
+- La configuracion principal ya se movio a variables de entorno documentadas en .env/.env.example.
 - En Archimate existe parsing de relaciones, pero hoy no se integran relaciones al XML final de salida.
 - En diagrams el endpoint GET /diagram/hola parece ser util de prueba y no funcional de negocio.
 - Hay archivo SQL en src/diagrams que no forma parte del flujo de NestJS.
 
 ## Sugerencias de posibles features
 
-1. Agregar validaciones con class-validator/class-transformer para todos los payloads.
-2. Estandarizar manejo de errores con HttpException y codigos HTTP claros.
-3. Versionar API (por ejemplo /v1/archimate y /v1/diagram).
-4. Exponer descarga directa de archivos generados (stream o URL temporal).
-5. Guardar metadata de ejecuciones (fecha, input hash, path de salida, usuario).
-6. Soportar relaciones ArchiMate en el XML de salida y conexiones en la vista.
-7. Agregar pruebas unitarias y e2e para casos felices y errores.
-8. Mover configuracion a .env documentado (puerto, rutas input/output).
-9. Separar servicios de parsing, transformacion y render XML para mejorar mantenibilidad.
-10. Añadir endpoint de validacion previa (dry-run) sin escribir archivo.
+1. Resuelta: Agregar validaciones con class-validator/class-transformer para payloads JSON.
+2. Resuelta: Estandarizar manejo de errores con HttpException y codigos HTTP claros.
+3. Pendiente: Versionar API (por ejemplo /v1/archimate y /v1/diagram).
+4. Pendiente: Exponer descarga directa de archivos generados (stream o URL temporal).
+5. Pendiente: Guardar metadata de ejecuciones (fecha, input hash, path de salida, usuario).
+6. Pendiente: Soportar relaciones ArchiMate en el XML de salida y conexiones en la vista.
+7. Pendiente: Agregar pruebas unitarias y e2e para casos felices y errores.
+8. Resuelta: Mover configuracion a .env documentado (puerto, rutas input/output).
+9. Parcial: Separar servicios de parsing, transformacion y render XML para mejorar mantenibilidad.
+10. Resuelta: Añadir endpoint de validacion previa (dry-run) sin escribir archivo.
 
 ## Roadmap recomendado
 

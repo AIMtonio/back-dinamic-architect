@@ -16,9 +16,19 @@ export class DiagramsController {
     return await this.drawioService.generateDiagramFromJson(payload);
   }
 
+  @Post('from-json/dry-run')
+  async validateFromJson(@Body() payload: GenerateDiagramFromJsonDto) {
+    return await this.drawioService.validateDiagramFromJson(payload);
+  }
+
   @Get('from-excel')
   async generateDiagramFromExcel() {
     return await this.drawioService.generateDiagramFromExcel();
+  }
+
+  @Get('from-excel/dry-run')
+  async validateFromExcel() {
+    return await this.drawioService.validateDiagramFromExcel();
   }
 
   @Get('hola')
