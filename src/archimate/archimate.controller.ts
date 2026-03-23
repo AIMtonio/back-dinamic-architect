@@ -1,7 +1,5 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ArchimateService } from './archimate.service';
-import { CreateArchimateDto } from './dto/create-archimate.dto';
-import { UpdateArchimateDto } from './dto/update-archimate.dto';
 
 @Controller('archimate')
 export class ArchimateController {
@@ -13,5 +11,16 @@ export class ArchimateController {
     @Query('out') out = 'archimate-model.xml',
   ) {
     return await this.archimateService.generateReport(file, out);
+  }
+
+  @Post('from-json')
+  async generateFromJson(
+    @Body() body: Record<string, unknown>,
+  ) {
+    const out = typeof body.out === 'string' && body.out.trim().length > 0
+      ? body.out
+      : 'archimate-model.xml';
+
+    return await this.archimateService.generateReportFromJson(body, out);
   }
 }

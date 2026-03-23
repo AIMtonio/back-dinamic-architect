@@ -268,14 +268,73 @@ export class ArchimateService {
       .filter((item): item is ArchimateRelationship => item !== null);
   }
 
-  async generateReport(filePath?: string, outPath = 'archimate-report.xml') {
-    console.log('Generating ArchiMate report...');
+  private parseElementsFromJson(
+    data: Record<string, unknown>,
+    aliases: string[],
+    xsiType: string,
+    nameAliases: string[] = [],
+  ): ArchimateElement[] {
+    const rawValue = this.getRowValue(data, aliases);
+    if (!Array.isArray(rawValue)) {
+      return [];
+    }
 
-    const inputPath = filePath ?? 'src/data/input/business_actors.xlsx';
-    const workbook = XLSX.readFile(inputPath);
-    console.log(`Excel file: ${inputPath}`);
-    console.log(`Sheets detected: ${workbook.SheetNames.join(', ')}`);
+    return rawValue
+      .map((item) => {
+        if (typeof item === 'string' || typeof item === 'number') {
+          const name = String(item).trim();
+          if (!name) {
+            return null;
+          }
 
+          return {
+            identifier: `id-${this.generateUniqueId()}`,
+            name,
+            xsiType,
+          };
+        }
+
+        if (!item || typeof item !== 'object') {
+          return null;
+        }
+
+        const itemRecord = item as Record<string, unknown>;
+        const rawName = this.getRowValue(
+          itemRecord,
+          ['name', 'nombre', 'title', 'titulo', 'elementname', ...nameAliases],
+        );
+        const name = String(rawName ?? '').trim();
+        if (!name) {
+          return null;
+        }
+
+        const rawIdValue = this.getRowValue(itemRecord, ['id', 'identifier', 'identificador']);
+        const rawId = String(rawIdValue ?? '').trim();
+        const identifier = rawId ? `id-${rawId.replace(/^id-/, '')}` : `id-${this.generateUniqueId()}`;
+
+        return {
+          identifier,
+          name,
+          xsiType,
+        };
+      })
+      .filter((item): item is ArchimateElement => item !== null);
+  }
+
+  private resolveOutputPath(outPath: string): string {
+    return outPath.includes('/') || outPath.includes('\\')
+      ? outPath
+      : `src/data/output/${outPath}`;
+  }
+
+  private buildAndSaveReport(
+    courses: ArchimateElement[],
+    principles: ArchimateElement[],
+    goals: ArchimateElement[],
+    drivers: ArchimateElement[],
+    businessActors: ArchimateElement[],
+    outPath: string,
+  ) {
     const defaultCourse: ArchimateElement = {
       identifier: 'id-243de2b263264cc0bdf2dcb1b386fac7',
       name: 'Texto de ejemplo',
@@ -306,52 +365,11 @@ export class ArchimateService {
       xsiType: 'BusinessActor',
     };
 
-    const coursesFromCourseSheet = this.parseElementsFromSheet(
-      workbook,
-      ['CourseOfActions', 'Course Of Actions', 'CourseOfAction', 'Course Of Action', 'Courses'],
-      'CourseOfAction',
-      ['courseofaction', 'courseofactions'],
-    );
-    const courses = [...coursesFromCourseSheet];
-
-    const principles = this.parseElementsFromSheet(
-      workbook,
-      ['Principles', 'Principle', 'Principios', 'Principio'],
-      'Principle',
-      ['principle', 'principles', 'result', 'results', 'resultado', 'resultados'],
-    );
-    const goals = this.parseElementsFromSheet(
-      workbook,
-      ['Goals', 'Goal', 'Objetivos', 'Objetivo'],
-      'Goal',
-      ['goal', 'goals', 'objetivo', 'objetivos'],
-    );
-    const drivers = this.parseElementsFromSheet(
-      workbook,
-      ['Drivers', 'Driver', 'Impulsores', 'Impulsor'],
-      'Driver',
-      ['driver', 'drivers', 'impulsor', 'impulsores'],
-    );
-    const businessActors = this.parseElementsFromSheet(
-      workbook,
-      ['BusinessActors', 'Business Actor', 'Business Actors', 'ActoresNegocio', 'Actores de Negocio'],
-      'BusinessActor',
-      ['businessactor', 'businessactors', 'actor', 'actors', 'actordenegocio', 'actoresdenegocio'],
-    );
-
-    console.log(`Rows loaded -> CourseOfAction total: ${courses.length}, BusinessActor: ${businessActors.length}, Principle: ${principles.length}, Goal: ${goals.length}, Driver: ${drivers.length}`);
-
     const normalizedCourses = courses.length ? courses : [defaultCourse];
     const normalizedPrinciples = principles.length ? principles : [defaultPrinciple];
     const normalizedGoals = goals.length ? goals : [defaultGoal];
     const normalizedDrivers = drivers.length ? drivers : [defaultDriver];
     const normalizedBusinessActors = businessActors.length ? businessActors : [defaultBusinessActor];
-
-    const mainCourse = normalizedCourses[0];
-    const mainPrinciple = normalizedPrinciples[0];
-    const mainGoal = normalizedGoals[0];
-    const mainDriver = normalizedDrivers[0];
-    const mainBusinessActor = normalizedBusinessActors[0];
 
     const allElements = [
       ...normalizedCourses,
@@ -550,12 +568,95 @@ export class ArchimateService {
 
     const xml = header + body + views + footer;
 
-    const outputPath = outPath.includes('/') || outPath.includes('\\')
-      ? outPath
-      : `src/data/output/${outPath}`;
+    const outputPath = this.resolveOutputPath(outPath);
 
     fs.writeFileSync(outputPath, xml, 'utf8');
     return { message: 'Reporte ArchiMate generado', file: outputPath };
+  }
+
+  async generateReport(filePath?: string, outPath = 'archimate-report.xml') {
+    console.log('Generating ArchiMate report...');
+
+    const inputPath = filePath ?? 'src/data/input/business_actors.xlsx';
+    const workbook = XLSX.readFile(inputPath);
+    console.log(`Excel file: ${inputPath}`);
+    console.log(`Sheets detected: ${workbook.SheetNames.join(', ')}`);
+
+    const coursesFromCourseSheet = this.parseElementsFromSheet(
+      workbook,
+      ['CourseOfActions', 'Course Of Actions', 'CourseOfAction', 'Course Of Action', 'Courses'],
+      'CourseOfAction',
+      ['courseofaction', 'courseofactions'],
+    );
+    const courses = [...coursesFromCourseSheet];
+
+    const principles = this.parseElementsFromSheet(
+      workbook,
+      ['Principles', 'Principle', 'Principios', 'Principio'],
+      'Principle',
+      ['principle', 'principles', 'result', 'results', 'resultado', 'resultados'],
+    );
+    const goals = this.parseElementsFromSheet(
+      workbook,
+      ['Goals', 'Goal', 'Objetivos', 'Objetivo'],
+      'Goal',
+      ['goal', 'goals', 'objetivo', 'objetivos'],
+    );
+    const drivers = this.parseElementsFromSheet(
+      workbook,
+      ['Drivers', 'Driver', 'Impulsores', 'Impulsor'],
+      'Driver',
+      ['driver', 'drivers', 'impulsor', 'impulsores'],
+    );
+    const businessActors = this.parseElementsFromSheet(
+      workbook,
+      ['BusinessActors', 'Business Actor', 'Business Actors', 'ActoresNegocio', 'Actores de Negocio'],
+      'BusinessActor',
+      ['businessactor', 'businessactors', 'actor', 'actors', 'actordenegocio', 'actoresdenegocio'],
+    );
+
+    console.log(`Rows loaded -> CourseOfAction total: ${courses.length}, BusinessActor: ${businessActors.length}, Principle: ${principles.length}, Goal: ${goals.length}, Driver: ${drivers.length}`);
+
+    return this.buildAndSaveReport(courses, principles, goals, drivers, businessActors, outPath);
+  }
+
+  async generateReportFromJson(data: Record<string, unknown>, outPath = 'archimate-report.xml') {
+    console.log('Generating ArchiMate report from JSON...');
+
+    const courses = this.parseElementsFromJson(
+      data,
+      ['courseOfActions', 'courseofactions', 'courses', 'courseOfAction', 'course_of_actions', 'cursos', 'acciones'],
+      'CourseOfAction',
+      ['courseofaction', 'courseofactions'],
+    );
+    const principles = this.parseElementsFromJson(
+      data,
+      ['principles', 'principios', 'principle', 'principio'],
+      'Principle',
+      ['principle', 'principles', 'result', 'results', 'resultado', 'resultados'],
+    );
+    const goals = this.parseElementsFromJson(
+      data,
+      ['goals', 'goal', 'objetivos', 'objetivo'],
+      'Goal',
+      ['goal', 'goals', 'objetivo', 'objetivos'],
+    );
+    const drivers = this.parseElementsFromJson(
+      data,
+      ['drivers', 'driver', 'impulsores', 'impulsor'],
+      'Driver',
+      ['driver', 'drivers', 'impulsor', 'impulsores'],
+    );
+    const businessActors = this.parseElementsFromJson(
+      data,
+      ['businessActors', 'businessactors', 'business_actor', 'business_actors', 'actoresNegocio', 'actoresdeNegocio', 'actores'],
+      'BusinessActor',
+      ['businessactor', 'businessactors', 'actor', 'actors', 'actordenegocio', 'actoresdenegocio'],
+    );
+
+    console.log(`Rows loaded -> CourseOfAction total: ${courses.length}, BusinessActor: ${businessActors.length}, Principle: ${principles.length}, Goal: ${goals.length}, Driver: ${drivers.length}`);
+
+    return this.buildAndSaveReport(courses, principles, goals, drivers, businessActors, outPath);
   }
 }
 
