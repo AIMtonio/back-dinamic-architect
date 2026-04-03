@@ -405,6 +405,29 @@ Si no tienes Unidades compartidas (Shared Drives), usa OAuth2 de usuario.
 
 Con eso, las generaciones de Archimate subiran automatico a Drive personal.
 
+### Error invalid_grant
+
+Si la API responde `El reporte se genero, pero fallo la subida a Google Drive: invalid_grant`, el problema no esta en la generacion del archivo sino en el refresh token OAuth2.
+
+Las causas mas comunes son:
+
+1. `GOOGLE_OAUTH_REFRESH_TOKEN` fue revocado o expirado.
+2. El refresh token fue emitido para otro `GOOGLE_OAUTH_CLIENT_ID` o con otro `GOOGLE_OAUTH_CLIENT_SECRET`.
+3. Se regeneraron las credenciales OAuth en Google Cloud y el token viejo quedo invalido.
+4. La app nunca recibio realmente un refresh token y se guardo un valor incorrecto o vacio.
+
+Pasos de correccion:
+
+1. Verifica que `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` y `GOOGLE_OAUTH_REDIRECT_URI` coincidan exactamente con el cliente OAuth que genero el token.
+2. Genera un URL nuevo en alguno de estos endpoints:
+   - `GET /archimate/google-drive/auth-url`
+   - `GET /diagram/google-drive/auth-url`
+   - `GET /initial-document/google-drive/auth-url`
+3. Autoriza de nuevo y usa el `code` recibido en el redirect sobre el endpoint equivalente `.../google-drive/exchange-code`.
+4. Guarda el nuevo `refreshToken` en `GOOGLE_OAUTH_REFRESH_TOKEN` y reinicia la API.
+
+Si tambien tienes configurado `GOOGLE_DRIVE_CLIENT_EMAIL` y `GOOGLE_DRIVE_PRIVATE_KEY`, la API ahora intentara usar Service Account automaticamente cuando OAuth falle con `invalid_grant`.
+
 ## Estado actual de pruebas
 
 - Hay pruebas base de definicion para controladores/servicios.

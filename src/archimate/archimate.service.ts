@@ -400,6 +400,67 @@ export class ArchimateService {
     return Boolean(this.hasGoogleOAuthBaseConfig() && this.googleOAuthRefreshToken);
   }
 
+  private isGoogleInvalidGrantError(error: unknown): boolean {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+
+    const gaxiosError = error as Error & {
+      response?: {
+        data?: {
+          error?: string;
+          error_description?: string;
+        };
+      };
+    };
+
+    return gaxiosError.response?.data?.error === 'invalid_grant'
+      || gaxiosError.message.toLowerCase().includes('invalid_grant');
+  }
+
+  private buildGoogleDriveUploadErrorMessage(error: unknown): string {
+    if (this.isGoogleInvalidGrantError(error)) {
+      return 'Google rechazo el refresh token OAuth2 (invalid_grant). Regenera GOOGLE_OAUTH_REFRESH_TOKEN con /archimate/google-drive/auth-url y /archimate/google-drive/exchange-code, o elimina GOOGLE_OAUTH_* para usar Service Account.';
+    }
+
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    return 'error desconocido';
+  }
+
+  private createGoogleServiceAccountClient() {
+    return new google.auth.JWT({
+      email: this.googleDriveClientEmail,
+      key: this.googleDrivePrivateKey?.replace(/\\n/g, '\n'),
+      scopes: ['https://www.googleapis.com/auth/drive'],
+    });
+  }
+
+  private async createGoogleDriveAuthClient(): Promise<OAuth2Client | InstanceType<typeof google.auth.JWT>> {
+    if (this.hasGoogleOAuthUploadConfig()) {
+      try {
+        const oauth2Client = this.createGoogleOAuthClient();
+        oauth2Client.setCredentials({ refresh_token: this.googleOAuthRefreshToken });
+        await oauth2Client.getAccessToken();
+        return oauth2Client;
+      } catch (error) {
+        if (!this.hasServiceAccountGoogleDriveConfig()) {
+          throw error;
+        }
+      }
+    }
+
+    if (this.hasServiceAccountGoogleDriveConfig()) {
+      return this.createGoogleServiceAccountClient();
+    }
+
+    throw new BadRequestException(
+      'Google Drive no configurado. Define OAuth (GOOGLE_OAUTH_*) o Service Account (GOOGLE_DRIVE_CLIENT_EMAIL/PRIVATE_KEY).',
+    );
+  }
+
   private createGoogleOAuthClient(): OAuth2Client {
     if (!this.hasGoogleOAuthBaseConfig()) {
       throw new BadRequestException(
@@ -462,19 +523,7 @@ export class ArchimateService {
       };
     }
 
-    let auth: OAuth2Client | InstanceType<typeof google.auth.JWT>;
-
-    if (this.hasGoogleOAuthUploadConfig()) {
-      const oauth2Client = this.createGoogleOAuthClient();
-      oauth2Client.setCredentials({ refresh_token: this.googleOAuthRefreshToken });
-      auth = oauth2Client;
-    } else {
-      auth = new google.auth.JWT({
-        email: this.googleDriveClientEmail,
-        key: this.googleDrivePrivateKey?.replace(/\\n/g, '\n'),
-        scopes: ['https://www.googleapis.com/auth/drive'],
-      });
-    }
+    const auth = await this.createGoogleDriveAuthClient();
 
     const drive = google.drive({ version: 'v3', auth });
 
@@ -824,7 +873,7 @@ export class ArchimateService {
       return this.toArchimateApiResponse(outputPath, uploadResult, true);
     } catch (error) {
       throw new InternalServerErrorException(
-        `El reporte se genero, pero fallo la subida a Google Drive: ${error instanceof Error ? error.message : 'error desconocido'}`,
+        `El reporte se genero, pero fallo la subida a Google Drive: ${this.buildGoogleDriveUploadErrorMessage(error)}`,
       );
     }
   }
