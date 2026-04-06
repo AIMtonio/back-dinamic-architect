@@ -28,4 +28,9 @@ export class InitialDocumentController {
     return await this.initialDocumentService.exchangeGoogleDriveCode(code);
   }
 
+  @Get('dda-template')
+  async generateDdaTemplate() {
+    return await this.initialDocumentService.generateDdaTemplate();
+  }
+
 }
