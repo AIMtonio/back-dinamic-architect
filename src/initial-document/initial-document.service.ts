@@ -1,9 +1,9 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { randomUUID } from 'crypto';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { CreateInitialDocumentDto } from './dto/create-initial-document.dto';
 import * as fs from 'fs';
-import { basename, extname, join } from 'path';
-import { google } from 'googleapis';
-import { OAuth2Client } from 'google-auth-library';
+import { join } from 'path';
+import { GoogleDriveService } from '../common/google-drive/google-drive.service';
 import {
   Document,
   FileChild,
@@ -29,20 +29,13 @@ type ArchitectureTemplateSections = {
 
 @Injectable()
 export class InitialDocumentService {
+  constructor(private readonly googleDrive: GoogleDriveService) {}
+
   private readonly templatePath = 'src/data/markdown/generar_documento_arquitectura.md';
   private readonly outputDir = process.env.ARCHITECTURE_OUTPUT_DIR || 'src/data/output';
   private readonly aiModel = process.env.ARCHITECTURE_AI_MODEL || process.env.OPENAI_MODEL || 'gpt-4.1-mini';
   private readonly aiBaseUrl = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
   private readonly openAiApiKey = process.env.OPENAI_API_KEY;
-  private readonly uploadToGoogleDriveOnFinish = process.env.GOOGLE_DRIVE_UPLOAD_ON_FINISH === 'true';
-  private readonly googleDriveFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
-  private readonly googleDriveClientEmail = process.env.GOOGLE_DRIVE_CLIENT_EMAIL;
-  private readonly googleDrivePrivateKey = process.env.GOOGLE_DRIVE_PRIVATE_KEY;
-  private readonly googleDrivePublicRead = process.env.GOOGLE_DRIVE_PUBLIC_READ !== 'false';
-  private readonly googleOAuthClientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
-  private readonly googleOAuthClientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-  private readonly googleOAuthRedirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI;
-  private readonly googleOAuthRefreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
 
   async create(createInitialDocumentDto: CreateInitialDocumentDto) {
     const template = this.readTemplate();
@@ -80,10 +73,6 @@ export class InitialDocumentService {
     };
   }
 
-  async prueba() {
-    return 'prueba';
-  }
-
   private readTemplate(): string {
     try {
       return fs.readFileSync(this.templatePath, 'utf8');
@@ -92,34 +81,16 @@ export class InitialDocumentService {
     }
   }
 
-  private hasServiceAccountGoogleDriveConfig(): boolean {
-    return Boolean(this.googleDriveClientEmail && this.googleDrivePrivateKey);
+  getGoogleDriveAuthUrl() {
+    return this.googleDrive.getAuthUrl();
   }
 
-  private hasGoogleOAuthBaseConfig(): boolean {
-    return Boolean(this.googleOAuthClientId && this.googleOAuthClientSecret && this.googleOAuthRedirectUri);
-  }
-
-  private hasGoogleOAuthUploadConfig(): boolean {
-    return Boolean(this.hasGoogleOAuthBaseConfig() && this.googleOAuthRefreshToken);
-  }
-
-  private createGoogleOAuthClient(): OAuth2Client {
-    if (!this.hasGoogleOAuthBaseConfig()) {
-      throw new BadRequestException(
-        'OAuth Google Drive no configurado. Define GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET y GOOGLE_OAUTH_REDIRECT_URI.',
-      );
-    }
-
-    return new google.auth.OAuth2(
-      this.googleOAuthClientId,
-      this.googleOAuthClientSecret,
-      this.googleOAuthRedirectUri,
-    );
+  async exchangeGoogleDriveCode(code: string) {
+    return this.googleDrive.exchangeCode(code);
   }
 
   private async uploadGeneratedFilesToGoogleDrive(markdownPath: string, wordPath: string) {
-    if (!this.uploadToGoogleDriveOnFinish) {
+    if (!this.googleDrive.shouldUploadOnFinish) {
       return {
         uploadAttempted: false,
         uploadedToDrive: false,
@@ -130,8 +101,8 @@ export class InitialDocumentService {
     }
 
     try {
-      const markdownUpload = await this.uploadFileToGoogleDrive(markdownPath);
-      const wordUpload = await this.uploadFileToGoogleDrive(wordPath);
+      const markdownUpload = await this.googleDrive.uploadFile(markdownPath);
+      const wordUpload = await this.googleDrive.uploadFile(wordPath);
 
       return {
         uploadAttempted: true,
@@ -140,93 +111,15 @@ export class InitialDocumentService {
         markdown: markdownUpload,
         word: wordUpload,
       };
-    } catch {
+    } catch (error) {
       return {
         uploadAttempted: true,
         uploadedToDrive: false,
-        reason: 'Error inesperado al subir archivos a Google Drive.',
+        reason: this.googleDrive.buildUploadErrorMessage(error),
         markdown: null,
         word: null,
       };
     }
-  }
-
-  private async uploadFileToGoogleDrive(filePath: string) {
-    if (!this.googleDriveFolderId) {
-      return {
-        uploaded: false,
-        reason: 'Google Drive no configurado. Define GOOGLE_DRIVE_FOLDER_ID.',
-      };
-    }
-
-    if (!this.hasGoogleOAuthUploadConfig() && !this.hasServiceAccountGoogleDriveConfig()) {
-      return {
-        uploaded: false,
-        reason: 'Google Drive no configurado. Define OAuth (GOOGLE_OAUTH_*) o Service Account (GOOGLE_DRIVE_CLIENT_EMAIL/PRIVATE_KEY).',
-      };
-    }
-
-    let auth: OAuth2Client | InstanceType<typeof google.auth.JWT>;
-
-    if (this.hasGoogleOAuthUploadConfig()) {
-      const oauth2Client = this.createGoogleOAuthClient();
-      oauth2Client.setCredentials({ refresh_token: this.googleOAuthRefreshToken });
-      auth = oauth2Client;
-    } else {
-      auth = new google.auth.JWT({
-        email: this.googleDriveClientEmail,
-        key: this.googleDrivePrivateKey?.replace(/\\n/g, '\n'),
-        scopes: ['https://www.googleapis.com/auth/drive'],
-      });
-    }
-
-    const drive = google.drive({ version: 'v3', auth });
-    const extension = extname(filePath).toLowerCase();
-    const mimeType = extension === '.docx'
-      ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      : 'text/markdown';
-
-    const createResponse = await drive.files.create({
-      requestBody: {
-        name: basename(filePath),
-        parents: this.googleDriveFolderId ? [this.googleDriveFolderId] : undefined,
-      },
-      media: {
-        mimeType,
-        body: fs.createReadStream(filePath),
-      },
-      supportsAllDrives: true,
-      fields: 'id, webViewLink, webContentLink',
-    });
-
-    const fileId = createResponse.data.id;
-
-    if (fileId && this.googleDrivePublicRead) {
-      await drive.permissions.create({
-        fileId,
-        supportsAllDrives: true,
-        requestBody: {
-          role: 'reader',
-          type: 'anyone',
-        },
-      });
-    }
-
-    const fileResponse = fileId
-      ? await drive.files.get({
-        fileId,
-        supportsAllDrives: true,
-        fields: 'id, webViewLink, webContentLink',
-      })
-      : null;
-
-    return {
-      uploaded: Boolean(fileId),
-      id: fileResponse?.data.id,
-      webViewLink: fileResponse?.data.webViewLink,
-      webContentLink: fileResponse?.data.webContentLink,
-      reason: null,
-    };
   }
 
   private async generateDocumentMarkdown(
@@ -584,5 +477,320 @@ export class InitialDocumentService {
       },
       rows: tableRows,
     });
+  }
+
+  // ─── DDA ARQ TI TEMPLATE ────────────────────────────────────────────────────
+
+  private generateUniqueId(): string {
+    return randomUUID().replace(/-/g, '');
+  }
+
+  async generateDdaTemplate() {
+    fs.mkdirSync(this.outputDir, { recursive: true });
+    const fileName = `dda-arq-ti-${Date.now()}.docx`;
+    const outputPath = join(this.outputDir, fileName);
+
+    const doc = this.buildDdaWordDoc();
+    const buffer = await Packer.toBuffer(doc);
+    fs.writeFileSync(outputPath, buffer);
+
+    return {
+      jsonapi: { version: '1.0' },
+      data: {
+        type: 'dda-document',
+        id: `id-${this.generateUniqueId()}`,
+        attributes: {
+          message: 'DDA ARQ TI generado exitosamente.',
+          file: {
+            name: fileName,
+            path: outputPath,
+          },
+        },
+        links: {
+          localPath: outputPath,
+        },
+      },
+      meta: {
+        generatedAt: new Date().toISOString(),
+      },
+    };
+  }
+
+  private ddaH1(text: string): Paragraph {
+    return new Paragraph({ text, heading: HeadingLevel.HEADING_1, spacing: { before: 240, after: 120 } });
+  }
+
+  private ddaH2(text: string): Paragraph {
+    return new Paragraph({ text, heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 100 } });
+  }
+
+  private ddaH3(text: string): Paragraph {
+    return new Paragraph({ text, heading: HeadingLevel.HEADING_3, spacing: { before: 160, after: 80 } });
+  }
+
+  private ddaPara(text: string): Paragraph {
+    return new Paragraph({ children: [new TextRun(text)], spacing: { after: 200 } });
+  }
+
+  private ddaSpacer(): Paragraph {
+    return new Paragraph({ text: '' });
+  }
+
+  private buildDdaTable(rows: string[][], headerRow = true): Table {
+    const maxCols = rows.reduce((max, row) => Math.max(max, row.length), 0);
+    const tableRows = rows.map((row, rowIndex) => {
+      const cells = Array.from({ length: maxCols }).map((_, colIndex) => {
+        const value = row[colIndex] ?? '';
+        return new TableCell({
+          width: { size: Math.floor(100 / maxCols), type: WidthType.PERCENTAGE },
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: value, bold: headerRow && rowIndex === 0 })],
+            }),
+          ],
+        });
+      });
+      return new TableRow({ children: cells });
+    });
+    return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: tableRows });
+  }
+
+  private buildDdaWordDoc(): Document {
+    const children: FileChild[] = [
+
+      // ─── PORTADA ──────────────────────────────────────────────────────────
+      new Paragraph({
+        children: [new TextRun({ text: 'Integración Enefevo', bold: true, size: 56 })],
+        spacing: { before: 480, after: 240 },
+      }),
+      new Paragraph({
+        children: [new TextRun({ text: 'Arquitectura TI', bold: true, size: 36 })],
+        spacing: { after: 120 },
+      }),
+      new Paragraph({
+        children: [new TextRun({ text: 'TRANSFORMACIÓN DIGITAL', bold: true, size: 28 })],
+        spacing: { after: 480 },
+      }),
+      this.buildDdaTable([
+        ['Arquitecto asignado', 'Verónica Cordero'],
+        ['Analista de negocio', 'Camila Perez'],
+        ['Project Manager', 'Admon. y Finanzas'],
+        ['Área de negocio', "Andrés Osvaldo Rosado D'Arcangelo"],
+        ['Solicitante', "Andrés Osvaldo Rosado D'Arcangelo"],
+        ['Versión del documento', '1.0'],
+        ['Estatus del documento', 'Draft'],
+        ['Tipo de proyecto', 'Requerimiento'],
+        ['Fecha', '11/04/2026'],
+        ['Prioridad', 'Alta'],
+        ['Clasificación de información', 'Interna'],
+      ], false),
+      this.ddaSpacer(),
+
+      // ─── 1. INTRODUCCIÓN ──────────────────────────────────────────────────
+      this.ddaH1('Introducción'),
+      this.ddaPara(
+        'El presente documento tiene como finalidad presentar el trabajo de arquitectura mencionados en el mismo bajo la metodología TOGAF, considerando la información entregada a través del requerimiento proveniente de la oficina de PMO.',
+      ),
+      this.ddaSpacer(),
+
+      // ─── 2. CONTROL DE CAMBIOS ────────────────────────────────────────────
+      this.ddaH1('Control de cambios'),
+      this.buildDdaTable([
+        ['Versión', 'Fecha', 'Autor', 'Afectación', 'Comentarios'],
+        ['1.0', '11/04/2026', 'Antonio Alonso', 'Inicial', 'Versión inicial del requerimiento de arquitectura.'],
+      ]),
+      this.ddaSpacer(),
+
+      // ─── 3. DETALLE DEL PROYECTO ──────────────────────────────────────────
+      this.ddaH1('Detalle del proyecto'),
+      this.buildDdaTable([
+        ['Nombre del proyecto', 'afin025-me25 Integración Enefevo'],
+        ['PMO', 'Camila Perez'],
+        ['Solicitante', "Andrés Osvaldo Rosado D'Arcangelo"],
+        ['Área del solicitante', 'Administración y Finanzas'],
+        ['Arquitecto', 'Antonio Alonso'],
+        ['Sponsor del proyecto', 'Aaron Antonio Suarez'],
+        ['Stakeholder del proyecto', 'Aaron Antonio Suarez'],
+        ['Prioridad', 'Alta'],
+        ['Riesgo', 'Medio'],
+        ['Clasificación de información', 'Interna'],
+        ['Versión del documento', '1.0'],
+        ['Tipo de proyecto', 'Requerimiento'],
+        ['Tipo de DDA', 'Nuevo DDA'],
+      ], false),
+      this.ddaSpacer(),
+
+      // ─── 4. ÁREAS DE NEGOCIO CONSIDERADAS ────────────────────────────────
+      this.ddaH1('Áreas de negocio consideradas'),
+      this.buildDdaTable([
+        ['Área'],
+        ['Administración y Finanzas'],
+        ['Experiencia de Clientes'],
+        ['Cobranza'],
+        ['Transformación Digital'],
+      ]),
+      this.ddaSpacer(),
+
+      // ─── 5. ÁREAS DE DESARROLLO CONSIDERADAS ─────────────────────────────
+      this.ddaH1('Áreas de desarrollo consideradas'),
+      this.buildDdaTable([
+        ['Área', 'Estatus'],
+        ['UX/UI', 'X'],
+        ['Front', 'X'],
+        ['Back', 'X'],
+        ['Middleware', 'X'],
+        ['SAP', 'No'],
+        ['Mobile IOS/Android', 'X'],
+        ['SalesForce', 'X'],
+        ['SAG', 'X'],
+      ]),
+      this.ddaSpacer(),
+
+      // ─── 6. JUSTIFICACIÓN DEL PROYECTO ───────────────────────────────────
+      this.ddaH1('Justificación del proyecto'),
+      this.buildDdaTable([
+        ['Funcionalidad', 'Comentarios'],
+        ['App Macropay', 'En la opción de pago con otras tiendas se considera el consumo para la referencia de Enefevo.'],
+        ['SAG', 'En la opción de generación de referencia se considera el consumo para la referencia de Enefevo.'],
+        ['Chatbot', 'En la opción de pago con otras tiendas se considera el consumo para la referencia de Enefevo.'],
+        ['Salesforce', 'En la opción de Referencia OpenPay considera el consumo para la referencia de Enefevo.'],
+        ['Link de pagos', 'En la opción de pago con otras tiendas de conveniencia se considera el consumo para la referencia de Enefevo.'],
+        ['MPF y PF', 'En el recibo de pago se considera el consumo para la referencia de Enefevo remplazando el consumo actual de Willys.'],
+      ]),
+      this.ddaSpacer(),
+
+      // ─── 7. FUNCIONALIDADES CONSIDERADAS ─────────────────────────────────
+      this.ddaH1('Funcionalidades consideradas'),
+      this.ddaPara('[Ver diagrama adjunto]'),
+      this.ddaSpacer(),
+
+      // ─── 8. ARQUITECTURA EMPRESARIAL ─────────────────────────────────────
+      this.ddaH1('Arquitectura empresarial'),
+      this.ddaPara('[Ver Ilustración 2: Arquitectura empresarial]'),
+      this.ddaSpacer(),
+
+      // ─── 9. ALCANCE DEL PROYECTO ─────────────────────────────────────────
+      this.ddaH1('Alcance del proyecto'),
+      this.ddaH2('Dentro del alcance'),
+      this.ddaPara('[Completar según requerimiento]'),
+      this.ddaH2('No considerado en el alcance'),
+      this.ddaPara('[Completar según requerimiento]'),
+      this.ddaSpacer(),
+
+      // ─── 10. AS IS ────────────────────────────────────────────────────────
+      this.ddaH1('As Is'),
+      this.ddaPara('[Ver Ilustración 3: Arquitectura As Is]'),
+      this.ddaSpacer(),
+
+      // ─── 11. TO BE ────────────────────────────────────────────────────────
+      this.ddaH1('To Be'),
+      this.ddaPara('[Ver Ilustración 4: Diagrama To Be]'),
+      this.ddaSpacer(),
+
+      this.ddaH2('Descripción de propuesta de solución'),
+      this.buildDdaTable([
+        ['Tipo', 'Componente', 'Responsabilidad'],
+        ['Canal', 'App / Portal / Salesforce / Chatbot / SAG', 'Iniciar solicitud'],
+        ['Backend', 'Servicios intermedios', 'Validación y orquestación'],
+        ['Middleware', 'Midd-referencia-enefevo', 'Integración con Enefevo'],
+        ['Externo', 'Proveedor Enefevo', 'Generación de referencia'],
+      ]),
+      this.ddaSpacer(),
+
+      this.ddaH2('Diagramas de contexto del proyecto'),
+
+      this.ddaH3('Diagrama de Secuencia: Inicio Aplicación de Cambalache PF'),
+      this.ddaPara('[Ver Ilustración 7: Diagrama de flujo: Aplicación MPF Cambalache]'),
+      this.ddaSpacer(),
+
+      this.ddaH3('Volumetría y requerimientos considerados en la solución'),
+      this.buildDdaTable([
+        ['Descripción', 'Detalle'],
+        ['Número de usuarios que usarán el aplicativo (aproximación)', '800 usuarios aproximadamente'],
+        ['Número de usuario concurrentes (usuarios conectados al mismo tiempo)', '500 usuarios aproximadamente'],
+        ['Tipo de usuarios que usarán el aplicativo', 'Internos'],
+        ['Horario de uso del aplicativo', '8 am. A 11pm'],
+        ['Clasificación de información', 'Interna'],
+        ['Contiene datos sensibles (INE, cuentas de banco, etc.)', 'No'],
+        ['Detalle de datos sensibles (si aplica)', 'N/A'],
+        ['Criticidad del aplicativo', 'Alta'],
+        ['Conexión a otros aplicativos', 'Si'],
+        ['Utilizará carga de archivos', 'Si'],
+        ['Tipo de documento a cargar (foto, video, PDF, etc.)', 'Si'],
+        ['Utilizará descarga de archivos', 'N/A'],
+        ['Tipo de documento para descarga (foto, video, PDF, etc.)', 'N/A'],
+        ['Requiere de un dominio', 'N/A'],
+        ['Colocar el dominio a ocupar (si aplica)', 'N/A'],
+        ['La aplicación se utilizará en dispositivos móviles', 'No'],
+      ]),
+      this.ddaSpacer(),
+
+      this.ddaH3('Componentes por considerar para pruebas de performance'),
+      this.buildDdaTable([
+        ['Nombre', 'Tipo de componente', 'Consideraciones'],
+        ['Aplicación de Abonos', 'Store Base de datos', 'Ejecución de 80 mil abonos al día.'],
+      ]),
+      this.ddaSpacer(),
+
+      this.ddaH3('Plataformas afectadas consideradas'),
+      this.buildDdaTable([
+        ['Aplicación', 'Descripción', 'Comentarios'],
+        ['MPF', 'Plataforma CRM', 'Conexión a plataforma para despliegue de información'],
+        ['PF', 'Intranet Garantias', ''],
+        ['POS', '', ''],
+        ['ADB', '', ''],
+      ]),
+      this.ddaSpacer(),
+
+      this.ddaH3('Diagrama de componentes'),
+      this.ddaPara('[Ver Ilustración 35: Diagrama de secuencia ADB Macropay App Escritorio]'),
+      this.ddaSpacer(),
+
+      this.ddaH3('Arquitectura de datos'),
+      this.ddaPara('En el siguiente esquema, se muestra la arquitectura de datos considerada en este proyecto, para mayor detalle, revisar el documento anexo.'),
+      this.ddaPara('[Ver Ilustración 36: Diagrama de ER Cambalache]'),
+      this.ddaSpacer(),
+
+      this.ddaH3('Tablas consideradas'),
+      this.ddaPara('A continuación, se muestra el esquema de tablas consideradas para este proyecto, consideran las siguientes bases de datos:'),
+      this.ddaSpacer(),
+
+      this.ddaH3('Roles y perfiles iniciales considerados para el aplicativo'),
+      this.ddaPara('[Ver Ilustración 37: Ilustración de roles y perfiles iniciales considerados para el aplicativo]'),
+      this.ddaSpacer(),
+
+      this.ddaH3('Interfaces / Jobs'),
+      this.buildDdaTable([
+        ['ID', 'Nombre de la Interfaz', 'Descripción', 'Tipo de Interfaz (Manual / Online / Batch)', 'Implementación de interfaz', 'Frecuencia', 'Aplicación Origen', 'Aplicación Destino'],
+        ['1', '', '', '', '', '', '', ''],
+        ['2', '', '', '', '', '', '', ''],
+        ['3', '', '', '', '', '', '', ''],
+        ['4', '', '', '', '', '', '', ''],
+      ]),
+      this.ddaSpacer(),
+
+      this.ddaH2('Tabla de costos'),
+      this.ddaPara('[Ver Ilustración 39: Tabla de costos]'),
+      this.ddaSpacer(),
+
+      this.ddaH2('Tags'),
+      this.buildDdaTable([
+        ['Tag', 'Valor', 'Descripción'],
+        ['', '', ''],
+      ]),
+      this.ddaSpacer(),
+
+      this.ddaH2('Apartado de seguridad'),
+      this.ddaPara(
+        'Para él envió de información en tránsito al componente público se considera la implementación del servicio de AWS KMS para el encriptado de los request body evitando que la información viaje en texto plano y cuenten con un cifrado simétrico y asimétrico, utilizando algoritmos aprobados por FIPS como AES y RSA.',
+      ),
+      this.ddaPara('Se consideran certificados SSL y TLS 1.2 en cada servicio implementado y su mapeo en el WAF.'),
+      this.ddaSpacer(),
+
+      this.ddaH2('Anexos al DDA'),
+      this.ddaPara('[Agregar anexos relevantes al documento]'),
+    ];
+
+    return new Document({ sections: [{ children }] });
   }
 }
