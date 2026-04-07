@@ -1,10 +1,9 @@
 import { randomUUID } from 'crypto';
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { CreateInitialDocumentDto } from './dto/create-initial-document.dto';
 import * as fs from 'fs';
-import { basename, extname, join } from 'path';
-import { google } from 'googleapis';
-import { OAuth2Client } from 'google-auth-library';
+import { join } from 'path';
+import { GoogleDriveService } from '../common/google-drive/google-drive.service';
 import {
   Document,
   FileChild,
@@ -30,20 +29,13 @@ type ArchitectureTemplateSections = {
 
 @Injectable()
 export class InitialDocumentService {
+  constructor(private readonly googleDrive: GoogleDriveService) {}
+
   private readonly templatePath = 'src/data/markdown/generar_documento_arquitectura.md';
   private readonly outputDir = process.env.ARCHITECTURE_OUTPUT_DIR || 'src/data/output';
   private readonly aiModel = process.env.ARCHITECTURE_AI_MODEL || process.env.OPENAI_MODEL || 'gpt-4.1-mini';
   private readonly aiBaseUrl = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
   private readonly openAiApiKey = process.env.OPENAI_API_KEY;
-  private readonly uploadToGoogleDriveOnFinish = process.env.GOOGLE_DRIVE_UPLOAD_ON_FINISH === 'true';
-  private readonly googleDriveFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
-  private readonly googleDriveClientEmail = process.env.GOOGLE_DRIVE_CLIENT_EMAIL;
-  private readonly googleDrivePrivateKey = process.env.GOOGLE_DRIVE_PRIVATE_KEY;
-  private readonly googleDrivePublicRead = process.env.GOOGLE_DRIVE_PUBLIC_READ !== 'false';
-  private readonly googleOAuthClientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
-  private readonly googleOAuthClientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-  private readonly googleOAuthRedirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI;
-  private readonly googleOAuthRefreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
 
   async create(createInitialDocumentDto: CreateInitialDocumentDto) {
     const template = this.readTemplate();
@@ -81,10 +73,6 @@ export class InitialDocumentService {
     };
   }
 
-  async prueba() {
-    return 'prueba';
-  }
-
   private readTemplate(): string {
     try {
       return fs.readFileSync(this.templatePath, 'utf8');
@@ -93,128 +81,16 @@ export class InitialDocumentService {
     }
   }
 
-  private hasServiceAccountGoogleDriveConfig(): boolean {
-    return Boolean(this.googleDriveClientEmail && this.googleDrivePrivateKey);
-  }
-
-  private hasGoogleOAuthBaseConfig(): boolean {
-    return Boolean(this.googleOAuthClientId && this.googleOAuthClientSecret && this.googleOAuthRedirectUri);
-  }
-
-  private hasGoogleOAuthUploadConfig(): boolean {
-    return Boolean(this.hasGoogleOAuthBaseConfig() && this.googleOAuthRefreshToken);
-  }
-
-  private isGoogleInvalidGrantError(error: unknown): boolean {
-    if (!(error instanceof Error)) {
-      return false;
-    }
-
-    const gaxiosError = error as Error & {
-      response?: {
-        data?: {
-          error?: string;
-          error_description?: string;
-        };
-      };
-    };
-
-    return gaxiosError.response?.data?.error === 'invalid_grant'
-      || gaxiosError.message.toLowerCase().includes('invalid_grant');
-  }
-
-  private buildGoogleDriveUploadErrorMessage(error: unknown): string {
-    if (this.isGoogleInvalidGrantError(error)) {
-      return 'Google rechazo el refresh token OAuth2 (invalid_grant). Regenera GOOGLE_OAUTH_REFRESH_TOKEN con /initial-document/google-drive/auth-url y /initial-document/google-drive/exchange-code, o elimina GOOGLE_OAUTH_* para usar Service Account.';
-    }
-
-    if (error instanceof Error) {
-      return error.message;
-    }
-
-    return 'error desconocido';
-  }
-
-  private createGoogleServiceAccountClient() {
-    return new google.auth.JWT({
-      email: this.googleDriveClientEmail,
-      key: this.googleDrivePrivateKey?.replace(/\\n/g, '\n'),
-      scopes: ['https://www.googleapis.com/auth/drive'],
-    });
-  }
-
-  private async createGoogleDriveAuthClient(): Promise<OAuth2Client | InstanceType<typeof google.auth.JWT>> {
-    if (this.hasGoogleOAuthUploadConfig()) {
-      try {
-        const oauth2Client = this.createGoogleOAuthClient();
-        oauth2Client.setCredentials({ refresh_token: this.googleOAuthRefreshToken });
-        await oauth2Client.getAccessToken();
-        return oauth2Client;
-      } catch (error) {
-        if (!this.hasServiceAccountGoogleDriveConfig()) {
-          throw error;
-        }
-      }
-    }
-
-    if (this.hasServiceAccountGoogleDriveConfig()) {
-      return this.createGoogleServiceAccountClient();
-    }
-
-    throw new BadRequestException(
-      'Google Drive no configurado. Define OAuth (GOOGLE_OAUTH_*) o Service Account (GOOGLE_DRIVE_CLIENT_EMAIL/PRIVATE_KEY).',
-    );
-  }
-
-  private createGoogleOAuthClient(): OAuth2Client {
-    if (!this.hasGoogleOAuthBaseConfig()) {
-      throw new BadRequestException(
-        'OAuth Google Drive no configurado. Define GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET y GOOGLE_OAUTH_REDIRECT_URI.',
-      );
-    }
-
-    return new google.auth.OAuth2(
-      this.googleOAuthClientId,
-      this.googleOAuthClientSecret,
-      this.googleOAuthRedirectUri,
-    );
-  }
-
   getGoogleDriveAuthUrl() {
-    const oauth2Client = this.createGoogleOAuthClient();
-    const url = oauth2Client.generateAuthUrl({
-      access_type: 'offline',
-      prompt: 'consent',
-      scope: ['https://www.googleapis.com/auth/drive.file'],
-    });
-
-    return {
-      message: 'Abre este URL, autoriza y luego usa el code para obtener refresh token.',
-      authUrl: url,
-    };
+    return this.googleDrive.getAuthUrl();
   }
 
   async exchangeGoogleDriveCode(code: string) {
-    if (!code || typeof code !== 'string') {
-      throw new BadRequestException('El parámetro code es obligatorio.');
-    }
-
-    const oauth2Client = this.createGoogleOAuthClient();
-    const { tokens } = await oauth2Client.getToken(code);
-
-    return {
-      message: 'Código intercambiado correctamente. Guarda GOOGLE_OAUTH_REFRESH_TOKEN en tu .env.',
-      refreshToken: tokens.refresh_token || null,
-      accessToken: tokens.access_token || null,
-      expiryDate: tokens.expiry_date || null,
-      warning: tokens.refresh_token
-        ? null
-        : 'Google no devolvió refresh_token. Repite autorización con prompt=consent y access_type=offline.',
-    };
+    return this.googleDrive.exchangeCode(code);
   }
 
   private async uploadGeneratedFilesToGoogleDrive(markdownPath: string, wordPath: string) {
-    if (!this.uploadToGoogleDriveOnFinish) {
+    if (!this.googleDrive.shouldUploadOnFinish) {
       return {
         uploadAttempted: false,
         uploadedToDrive: false,
@@ -225,8 +101,8 @@ export class InitialDocumentService {
     }
 
     try {
-      const markdownUpload = await this.uploadFileToGoogleDrive(markdownPath);
-      const wordUpload = await this.uploadFileToGoogleDrive(wordPath);
+      const markdownUpload = await this.googleDrive.uploadFile(markdownPath);
+      const wordUpload = await this.googleDrive.uploadFile(wordPath);
 
       return {
         uploadAttempted: true,
@@ -239,77 +115,11 @@ export class InitialDocumentService {
       return {
         uploadAttempted: true,
         uploadedToDrive: false,
-        reason: this.buildGoogleDriveUploadErrorMessage(error),
+        reason: this.googleDrive.buildUploadErrorMessage(error),
         markdown: null,
         word: null,
       };
     }
-  }
-
-  private async uploadFileToGoogleDrive(filePath: string) {
-    if (!this.googleDriveFolderId) {
-      return {
-        uploaded: false,
-        reason: 'Google Drive no configurado. Define GOOGLE_DRIVE_FOLDER_ID.',
-      };
-    }
-
-    if (!this.hasGoogleOAuthUploadConfig() && !this.hasServiceAccountGoogleDriveConfig()) {
-      return {
-        uploaded: false,
-        reason: 'Google Drive no configurado. Define OAuth (GOOGLE_OAUTH_*) o Service Account (GOOGLE_DRIVE_CLIENT_EMAIL/PRIVATE_KEY).',
-      };
-    }
-
-    const auth = await this.createGoogleDriveAuthClient();
-
-    const drive = google.drive({ version: 'v3', auth });
-    const extension = extname(filePath).toLowerCase();
-    const mimeType = extension === '.docx'
-      ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      : 'text/markdown';
-
-    const createResponse = await drive.files.create({
-      requestBody: {
-        name: basename(filePath),
-        parents: this.googleDriveFolderId ? [this.googleDriveFolderId] : undefined,
-      },
-      media: {
-        mimeType,
-        body: fs.createReadStream(filePath),
-      },
-      supportsAllDrives: true,
-      fields: 'id, webViewLink, webContentLink',
-    });
-
-    const fileId = createResponse.data.id;
-
-    if (fileId && this.googleDrivePublicRead) {
-      await drive.permissions.create({
-        fileId,
-        supportsAllDrives: true,
-        requestBody: {
-          role: 'reader',
-          type: 'anyone',
-        },
-      });
-    }
-
-    const fileResponse = fileId
-      ? await drive.files.get({
-        fileId,
-        supportsAllDrives: true,
-        fields: 'id, webViewLink, webContentLink',
-      })
-      : null;
-
-    return {
-      uploaded: Boolean(fileId),
-      id: fileResponse?.data.id,
-      webViewLink: fileResponse?.data.webViewLink,
-      webContentLink: fileResponse?.data.webContentLink,
-      reason: null,
-    };
   }
 
   private async generateDocumentMarkdown(

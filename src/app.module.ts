@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DiagramsModule } from './diagrams/diagrams.module';
@@ -7,8 +9,17 @@ import { InitialDocumentModule } from './initial-document/initial-document.modul
 import { SecuenciaModule } from './secuencia/secuencia.module';
 
 @Module({
-  imports: [DiagramsModule, ArchimateModule, InitialDocumentModule, SecuenciaModule],
+  imports: [
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 20 }]),
+    DiagramsModule,
+    ArchimateModule,
+    InitialDocumentModule,
+    SecuenciaModule,
+  ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule {}

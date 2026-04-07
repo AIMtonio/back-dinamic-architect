@@ -3,14 +3,14 @@ import {
   HttpException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import * as fs from 'fs';
 import * as XLSX from 'xlsx';
 import { randomUUID } from 'crypto';
-import { basename } from 'path';
-import { google } from 'googleapis';
-import { OAuth2Client } from 'google-auth-library';
+import { basename, resolve } from 'path';
+import { GoogleDriveService } from '../common/google-drive/google-drive.service';
 
 type ArchimateElement = {
   identifier: string;
@@ -37,19 +37,13 @@ type ViewNode = {
 
 @Injectable()
 export class ArchimateService {
+  private readonly logger = new Logger(ArchimateService.name);
+
+  constructor(private readonly googleDrive: GoogleDriveService) {}
 
   private readonly defaultInputExcelPath = process.env.ARCHIMATE_INPUT_EXCEL_PATH || 'src/data/input/business_actors.xlsx';
   private readonly defaultOutputDir = process.env.ARCHIMATE_OUTPUT_DIR || 'src/data/output';
   private readonly defaultOutputFile = process.env.ARCHIMATE_DEFAULT_OUTPUT_FILE || 'archimate-model.xml';
-  private readonly uploadToGoogleDriveOnFinish = process.env.GOOGLE_DRIVE_UPLOAD_ON_FINISH === 'true';
-  private readonly googleDriveFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
-  private readonly googleDriveClientEmail = process.env.GOOGLE_DRIVE_CLIENT_EMAIL;
-  private readonly googleDrivePrivateKey = process.env.GOOGLE_DRIVE_PRIVATE_KEY;
-  private readonly googleDrivePublicRead = process.env.GOOGLE_DRIVE_PUBLIC_READ !== 'false';
-  private readonly googleOAuthClientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
-  private readonly googleOAuthClientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-  private readonly googleOAuthRedirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI;
-  private readonly googleOAuthRefreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
 
   private generateUniqueId(): string {
     return randomUUID().replace(/-/g, '');
@@ -348,9 +342,15 @@ export class ArchimateService {
       throw new BadRequestException('El parámetro out debe ser un string no vacío.');
     }
 
-    return outPath.includes('/') || outPath.includes('\\')
-      ? outPath
-      : `${this.defaultOutputDir}/${outPath}`;
+    const hasPathSeparator = outPath.includes('/') || outPath.includes('\\');
+    const fullPath = hasPathSeparator ? resolve(outPath) : resolve(this.defaultOutputDir, outPath);
+    const allowedBase = resolve(this.defaultOutputDir);
+
+    if (!fullPath.startsWith(allowedBase)) {
+      throw new BadRequestException('Ruta de salida no permitida.');
+    }
+
+    return fullPath;
   }
 
   private buildValidationSummary(
@@ -388,185 +388,12 @@ export class ArchimateService {
     };
   }
 
-  private hasServiceAccountGoogleDriveConfig(): boolean {
-    return Boolean(this.googleDriveClientEmail && this.googleDrivePrivateKey);
-  }
-
-  private hasGoogleOAuthBaseConfig(): boolean {
-    return Boolean(this.googleOAuthClientId && this.googleOAuthClientSecret && this.googleOAuthRedirectUri);
-  }
-
-  private hasGoogleOAuthUploadConfig(): boolean {
-    return Boolean(this.hasGoogleOAuthBaseConfig() && this.googleOAuthRefreshToken);
-  }
-
-  private isGoogleInvalidGrantError(error: unknown): boolean {
-    if (!(error instanceof Error)) {
-      return false;
-    }
-
-    const gaxiosError = error as Error & {
-      response?: {
-        data?: {
-          error?: string;
-          error_description?: string;
-        };
-      };
-    };
-
-    return gaxiosError.response?.data?.error === 'invalid_grant'
-      || gaxiosError.message.toLowerCase().includes('invalid_grant');
-  }
-
-  private buildGoogleDriveUploadErrorMessage(error: unknown): string {
-    if (this.isGoogleInvalidGrantError(error)) {
-      return 'Google rechazo el refresh token OAuth2 (invalid_grant). Regenera GOOGLE_OAUTH_REFRESH_TOKEN con /archimate/google-drive/auth-url y /archimate/google-drive/exchange-code, o elimina GOOGLE_OAUTH_* para usar Service Account.';
-    }
-
-    if (error instanceof Error) {
-      return error.message;
-    }
-
-    return 'error desconocido';
-  }
-
-  private createGoogleServiceAccountClient() {
-    return new google.auth.JWT({
-      email: this.googleDriveClientEmail,
-      key: this.googleDrivePrivateKey?.replace(/\\n/g, '\n'),
-      scopes: ['https://www.googleapis.com/auth/drive'],
-    });
-  }
-
-  private async createGoogleDriveAuthClient(): Promise<OAuth2Client | InstanceType<typeof google.auth.JWT>> {
-    if (this.hasGoogleOAuthUploadConfig()) {
-      try {
-        const oauth2Client = this.createGoogleOAuthClient();
-        oauth2Client.setCredentials({ refresh_token: this.googleOAuthRefreshToken });
-        await oauth2Client.getAccessToken();
-        return oauth2Client;
-      } catch (error) {
-        if (!this.hasServiceAccountGoogleDriveConfig()) {
-          throw error;
-        }
-      }
-    }
-
-    if (this.hasServiceAccountGoogleDriveConfig()) {
-      return this.createGoogleServiceAccountClient();
-    }
-
-    throw new BadRequestException(
-      'Google Drive no configurado. Define OAuth (GOOGLE_OAUTH_*) o Service Account (GOOGLE_DRIVE_CLIENT_EMAIL/PRIVATE_KEY).',
-    );
-  }
-
-  private createGoogleOAuthClient(): OAuth2Client {
-    if (!this.hasGoogleOAuthBaseConfig()) {
-      throw new BadRequestException(
-        'OAuth Google Drive no configurado. Define GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET y GOOGLE_OAUTH_REDIRECT_URI.',
-      );
-    }
-
-    return new google.auth.OAuth2(
-      this.googleOAuthClientId,
-      this.googleOAuthClientSecret,
-      this.googleOAuthRedirectUri,
-    );
-  }
-
   getGoogleDriveAuthUrl() {
-    const oauth2Client = this.createGoogleOAuthClient();
-    const url = oauth2Client.generateAuthUrl({
-      access_type: 'offline',
-      prompt: 'consent',
-      scope: ['https://www.googleapis.com/auth/drive.file'],
-    });
-
-    return {
-      message: 'Abre este URL, autoriza y luego usa el code para obtener refresh token.',
-      authUrl: url,
-    };
+    return this.googleDrive.getAuthUrl();
   }
 
   async exchangeGoogleDriveCode(code: string) {
-    if (!code || typeof code !== 'string') {
-      throw new BadRequestException('El parámetro code es obligatorio.');
-    }
-
-    const oauth2Client = this.createGoogleOAuthClient();
-    const { tokens } = await oauth2Client.getToken(code);
-
-    return {
-      message: 'Código intercambiado correctamente. Guarda GOOGLE_OAUTH_REFRESH_TOKEN en tu .env.',
-      refreshToken: tokens.refresh_token || null,
-      accessToken: tokens.access_token || null,
-      expiryDate: tokens.expiry_date || null,
-      warning: tokens.refresh_token
-        ? null
-        : 'Google no devolvió refresh_token. Repite autorización con prompt=consent y access_type=offline.',
-    };
-  }
-
-  private async uploadFileToGoogleDrive(filePath: string) {
-    if (!this.googleDriveFolderId) {
-      return {
-        uploaded: false,
-        reason: 'Google Drive no configurado. Define GOOGLE_DRIVE_FOLDER_ID.',
-      };
-    }
-
-    if (!this.hasGoogleOAuthUploadConfig() && !this.hasServiceAccountGoogleDriveConfig()) {
-      return {
-        uploaded: false,
-        reason: 'Google Drive no configurado. Define OAuth (GOOGLE_OAUTH_*) o Service Account (GOOGLE_DRIVE_CLIENT_EMAIL/PRIVATE_KEY).',
-      };
-    }
-
-    const auth = await this.createGoogleDriveAuthClient();
-
-    const drive = google.drive({ version: 'v3', auth });
-
-    const createResponse = await drive.files.create({
-      requestBody: {
-        name: basename(filePath),
-        parents: this.googleDriveFolderId ? [this.googleDriveFolderId] : undefined,
-      },
-      media: {
-        mimeType: 'application/xml',
-        body: fs.createReadStream(filePath),
-      },
-      supportsAllDrives: true,
-      fields: 'id, webViewLink, webContentLink',
-    });
-
-    const fileId = createResponse.data.id;
-
-    if (fileId && this.googleDrivePublicRead) {
-      await drive.permissions.create({
-        fileId,
-        supportsAllDrives: true,
-        requestBody: {
-          role: 'reader',
-          type: 'anyone',
-        },
-      });
-    }
-
-    const fileResponse = fileId
-      ? await drive.files.get({
-        fileId,
-        supportsAllDrives: true,
-        fields: 'id, webViewLink, webContentLink',
-      })
-      : null;
-
-    return {
-      uploaded: Boolean(fileId),
-      id: fileResponse?.data.id,
-      webViewLink: fileResponse?.data.webViewLink,
-      webContentLink: fileResponse?.data.webContentLink,
-    };
+    return this.googleDrive.exchangeCode(code);
   }
 
   private toArchimateApiResponse(
@@ -864,22 +691,22 @@ export class ArchimateService {
       throw new InternalServerErrorException(`No se pudo escribir el reporte en ${outputPath}.`);
     }
 
-    if (!this.uploadToGoogleDriveOnFinish) {
+    if (!this.googleDrive.shouldUploadOnFinish) {
       return this.toArchimateApiResponse(outputPath, null, false);
     }
 
     try {
-      const uploadResult = await this.uploadFileToGoogleDrive(outputPath);
+      const uploadResult = await this.googleDrive.uploadFile(outputPath);
       return this.toArchimateApiResponse(outputPath, uploadResult, true);
     } catch (error) {
       throw new InternalServerErrorException(
-        `El reporte se genero, pero fallo la subida a Google Drive: ${this.buildGoogleDriveUploadErrorMessage(error)}`,
+        `El reporte se genero, pero fallo la subida a Google Drive: ${this.googleDrive.buildUploadErrorMessage(error)}`,
       );
     }
   }
 
   async generateReport(filePath?: string, outPath = this.defaultOutputFile) {
-    console.log('Generating ArchiMate report...');
+    this.logger.log('Generating ArchiMate report...');
 
     const inputPath = filePath ?? this.defaultInputExcelPath;
     if (!inputPath.endsWith('.xlsx')) {
@@ -897,8 +724,8 @@ export class ArchimateService {
       throw new BadRequestException(`No se pudo leer el archivo Excel ${inputPath}.`);
     }
 
-    console.log(`Excel file: ${inputPath}`);
-    console.log(`Sheets detected: ${workbook.SheetNames.join(', ')}`);
+    this.logger.log(`Excel file: ${inputPath}`);
+    this.logger.log(`Sheets detected: ${workbook.SheetNames.join(', ')}`);
 
     const coursesFromCourseSheet = this.parseElementsFromSheet(
       workbook,
@@ -933,7 +760,7 @@ export class ArchimateService {
       ['businessactor', 'businessactors', 'actor', 'actors', 'actordenegocio', 'actoresdenegocio'],
     );
 
-    console.log(`Rows loaded -> CourseOfAction total: ${courses.length}, BusinessActor: ${businessActors.length}, Principle: ${principles.length}, Goal: ${goals.length}, Driver: ${drivers.length}`);
+    this.logger.log(`Rows loaded -> CourseOfAction total: ${courses.length}, BusinessActor: ${businessActors.length}, Principle: ${principles.length}, Goal: ${goals.length}, Driver: ${drivers.length}`);
 
     try {
       return this.buildAndSaveReport(courses, principles, goals, drivers, businessActors, outPath);
@@ -999,7 +826,7 @@ export class ArchimateService {
   }
 
   async generateReportFromJson(data: Record<string, unknown>, outPath = this.defaultOutputFile) {
-    console.log('Generating ArchiMate report from JSON...');
+    this.logger.log('Generating ArchiMate report from JSON...');
 
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
       throw new BadRequestException('El payload debe ser un objeto JSON válido.');
@@ -1036,7 +863,7 @@ export class ArchimateService {
       ['businessactor', 'businessactors', 'actor', 'actors', 'actordenegocio', 'actoresdenegocio'],
     );
 
-    console.log(`Rows loaded -> CourseOfAction total: ${courses.length}, BusinessActor: ${businessActors.length}, Principle: ${principles.length}, Goal: ${goals.length}, Driver: ${drivers.length}`);
+    this.logger.log(`Rows loaded -> CourseOfAction total: ${courses.length}, BusinessActor: ${businessActors.length}, Principle: ${principles.length}, Goal: ${goals.length}, Driver: ${drivers.length}`);
 
     try {
       return this.buildAndSaveReport(courses, principles, goals, drivers, businessActors, outPath);

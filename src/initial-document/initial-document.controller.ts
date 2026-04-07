@@ -11,11 +11,6 @@ export class InitialDocumentController {
     return await this.initialDocumentService.create(createInitialDocumentDto);
   }
 
-  @Get()
-  async findAll() {
-    return await this.initialDocumentService.prueba();
-  }
-
   @Get('google-drive/auth-url')
   getGoogleDriveAuthUrl() {
     return this.initialDocumentService.getGoogleDriveAuthUrl();
