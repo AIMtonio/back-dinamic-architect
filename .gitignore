@@ -23,5 +23,3 @@ lerna-debug.log*
 .temp
 .tmp
 
-# Generated output artifacts
-src/data/output/
