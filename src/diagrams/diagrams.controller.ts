@@ -1,4 +1,5 @@
-import { Controller, Post, Body, Get, Query } from '@nestjs/common';
+import { Controller, Post, Body, Get, Res, StreamableFile } from '@nestjs/common';
+import { Response } from 'express';
 import { DiagramsService } from './diagrams.service';
 import { GenerateDiagramFromJsonDto } from './dto/generate-diagram-from-json.dto';
 
@@ -12,8 +13,16 @@ export class DiagramsController {
   }*/
 
   @Post('from-json')
-  async generateFromJson(@Body() payload: GenerateDiagramFromJsonDto) {
-    return await this.drawioService.generateDiagramFromJson(payload);
+  async generateFromJson(
+    @Body() payload: GenerateDiagramFromJsonDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const { buffer, filename } = await this.drawioService.generateDiagramFromJson(payload);
+    res.set({
+      'Content-Type': 'application/xml',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+    return new StreamableFile(buffer);
   }
 
   @Post('from-json/dry-run')
@@ -22,25 +31,20 @@ export class DiagramsController {
   }
 
   @Get('from-excel')
-  async generateDiagramFromExcel() {
-    return await this.drawioService.generateDiagramFromExcel();
+  async generateDiagramFromExcel(
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const { buffer, filename } = await this.drawioService.generateDiagramFromExcel();
+    res.set({
+      'Content-Type': 'application/xml',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+    return new StreamableFile(buffer);
   }
 
   @Get('from-excel/dry-run')
   async validateFromExcel() {
     return await this.drawioService.validateDiagramFromExcel();
-  }
-
-  @Get('google-drive/auth-url')
-  getGoogleDriveAuthUrl() {
-    return this.drawioService.getGoogleDriveAuthUrl();
-  }
-
-  @Get('google-drive/exchange-code')
-  async exchangeGoogleDriveCode(
-    @Query('code') code = '',
-  ) {
-    return await this.drawioService.exchangeGoogleDriveCode(code);
   }
 
 }

@@ -9,85 +9,20 @@ import {
 } from '@nestjs/common';
 import * as fs from 'fs';
 import * as XLSX from 'xlsx';
-import { randomUUID } from 'crypto';
 import { basename } from 'path';
-import { GoogleDriveService } from '../common/google-drive/google-drive.service';
 
 @Injectable()
 export class DiagramsService {
   private readonly logger = new Logger(DiagramsService.name);
 
-  constructor(private readonly googleDrive: GoogleDriveService) {}
 
   private readonly defaultInputExcelPath = process.env.DIAGRAM_INPUT_EXCEL_PATH || process.env.EXCEL_FILE_PATH || 'src/data/input/Componentes.xlsx';
   private readonly outputDir = process.env.DIAGRAM_OUTPUT_DIR || 'src/data/output';
   private readonly outputExcelFile = process.env.DIAGRAM_OUTPUT_EXCEL_FILE || 'diagramaComponentes.drawio';
   private readonly outputJsonFile = process.env.DIAGRAM_OUTPUT_JSON_FILE || 'diagramaComponentesJson.drawio';
 
-  private generateUniqueId(): string {
-    return randomUUID().replace(/-/g, '');
-  }
-
   private buildOutputPath(fileName: string): string {
     return `${this.outputDir}/${fileName}`;
-  }
-
-  getGoogleDriveAuthUrl() {
-    return this.googleDrive.getAuthUrl();
-  }
-
-  async exchangeGoogleDriveCode(code: string) {
-    return this.googleDrive.exchangeCode(code);
-  }
-
-  private toDiagramApiResponse(
-    outputPath: string,
-    componentsCount: number,
-    uploadResult?: {
-      uploaded?: boolean;
-      id?: string | null;
-      webViewLink?: string | null;
-      webContentLink?: string | null;
-      reason?: string | null;
-    } | null,
-    uploadAttempted = false,
-  ) {
-    const uploadedToDrive = Boolean(uploadResult?.uploaded);
-
-    return {
-      jsonapi: {
-        version: '1.0',
-      },
-      data: {
-        type: 'diagram-report',
-        id: `id-${this.generateUniqueId()}`,
-        attributes: {
-          message: 'Diagrama generado',
-          file: {
-            name: basename(outputPath),
-            path: outputPath,
-          },
-          components: {
-            count: componentsCount,
-          },
-          delivery: {
-            uploadAttempted,
-            uploadedToDrive,
-            provider: uploadedToDrive ? 'google-drive' : 'local',
-            reason: uploadResult?.reason ?? null,
-            googleDriveFileId: uploadResult?.id ?? null,
-          },
-        },
-        links: {
-          localPath: outputPath,
-          driveViewUrl: uploadResult?.webViewLink ?? null,
-          driveDownloadUrl: uploadResult?.webContentLink ?? null,
-        },
-      },
-      meta: {
-        generatedAt: new Date().toISOString(),
-      },
-    };
   }
 
   private extractComponentsFromPayload(payload: any): { name: string; type: string }[] {
@@ -238,18 +173,11 @@ export class DiagramsService {
     });
 
     const xml = header + nodes.join('\n') + footer;
-    try {
-      fs.writeFileSync(outputPath, xml);
-    } catch {
-      throw new InternalServerErrorException(`No se pudo escribir el archivo de salida en ${outputPath}.`);
-    }
 
-    if (!this.googleDrive.shouldUploadOnFinish) {
-      return this.toDiagramApiResponse(outputPath, components.length, null, false);
-    }
+    const filename = basename(outputPath) || 'diagram.drawio';
+    const buffer = Buffer.from(xml, 'utf8');
 
-    const uploadResult = await this.googleDrive.uploadFile(outputPath);
-    return this.toDiagramApiResponse(outputPath, components.length, uploadResult, true);
+    return { buffer, filename };
   }
 
   async generateDiagramFromJson(payload: any) {

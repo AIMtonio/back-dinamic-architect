@@ -1,9 +1,7 @@
 import { randomUUID } from 'crypto';
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { CreateInitialDocumentDto } from './dto/create-initial-document.dto';
 import * as fs from 'fs';
-import { join } from 'path';
-import { GoogleDriveService } from '../common/google-drive/google-drive.service';
 import {
   Document,
   FileChild,
@@ -29,48 +27,30 @@ type ArchitectureTemplateSections = {
 
 @Injectable()
 export class InitialDocumentService {
-  constructor(private readonly googleDrive: GoogleDriveService) {}
+  private readonly logger = new Logger(InitialDocumentService.name);
 
   private readonly templatePath = 'src/data/markdown/generar_documento_arquitectura.md';
-  private readonly outputDir = process.env.ARCHITECTURE_OUTPUT_DIR || 'src/data/output';
   private readonly aiModel = process.env.ARCHITECTURE_AI_MODEL || process.env.OPENAI_MODEL || 'gpt-4.1-mini';
   private readonly aiBaseUrl = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
   private readonly openAiApiKey = process.env.OPENAI_API_KEY;
 
-  async create(createInitialDocumentDto: CreateInitialDocumentDto) {
+  async create(createInitialDocumentDto: CreateInitialDocumentDto): Promise<{ buffer: Buffer; filename: string }> {
     const template = this.readTemplate();
     const generation = await this.generateDocumentMarkdown(createInitialDocumentDto, template);
-    const outputBaseName = this.buildOutputBaseName(createInitialDocumentDto.proyecto);
-    const markdownPath = this.saveGeneratedMarkdown(outputBaseName, generation.content);
-    const wordPath = await this.saveGeneratedWord(outputBaseName, generation.content);
-    const drive = await this.uploadGeneratedFilesToGoogleDrive(markdownPath, wordPath);
 
-    return {
-      message: 'Documento de arquitectura generado exitosamente.',
-      data: {
-        input: createInitialDocumentDto,
-        files: {
-          markdown: {
-            path: markdownPath,
-            name: markdownPath.split('/').pop(),
-            drive: drive.markdown,
-          },
-          word: {
-            path: wordPath,
-            name: wordPath.split('/').pop(),
-            drive: drive.word,
-          },
-        },
-        model: generation.model,
-        aiError: generation.aiError,
-        delivery: {
-          uploadAttempted: drive.uploadAttempted,
-          uploadedToDrive: drive.uploadedToDrive,
-          provider: drive.uploadedToDrive ? 'google-drive' : 'local',
-          reason: drive.reason,
-        },
-      },
-    };
+    const sanitized = createInitialDocumentDto.proyecto
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    const baseName = `arquitectura-${sanitized || 'proyecto'}-${Date.now()}`;
+    const docxFilename = `${baseName}.docx`;
+
+    const doc = new Document({
+      sections: [{ children: this.markdownToWordChildren(generation.content) }],
+    });
+    const docxBuffer = await Packer.toBuffer(doc);
+
+    return { buffer: docxBuffer, filename: docxFilename };
   }
 
   private readTemplate(): string {
@@ -78,47 +58,6 @@ export class InitialDocumentService {
       return fs.readFileSync(this.templatePath, 'utf8');
     } catch {
       throw new InternalServerErrorException(`No se pudo leer la plantilla markdown en ${this.templatePath}.`);
-    }
-  }
-
-  getGoogleDriveAuthUrl() {
-    return this.googleDrive.getAuthUrl();
-  }
-
-  async exchangeGoogleDriveCode(code: string) {
-    return this.googleDrive.exchangeCode(code);
-  }
-
-  private async uploadGeneratedFilesToGoogleDrive(markdownPath: string, wordPath: string) {
-    if (!this.googleDrive.shouldUploadOnFinish) {
-      return {
-        uploadAttempted: false,
-        uploadedToDrive: false,
-        reason: 'Google Drive upload desactivado (GOOGLE_DRIVE_UPLOAD_ON_FINISH=false).',
-        markdown: null,
-        word: null,
-      };
-    }
-
-    try {
-      const markdownUpload = await this.googleDrive.uploadFile(markdownPath);
-      const wordUpload = await this.googleDrive.uploadFile(wordPath);
-
-      return {
-        uploadAttempted: true,
-        uploadedToDrive: Boolean(markdownUpload.uploaded && wordUpload.uploaded),
-        reason: markdownUpload.reason || wordUpload.reason || null,
-        markdown: markdownUpload,
-        word: wordUpload,
-      };
-    } catch (error) {
-      return {
-        uploadAttempted: true,
-        uploadedToDrive: false,
-        reason: this.googleDrive.buildUploadErrorMessage(error),
-        markdown: null,
-        word: null,
-      };
     }
   }
 
@@ -317,40 +256,7 @@ export class InitialDocumentService {
     }
   }
 
-  private buildOutputBaseName(projectName: string): string {
-    fs.mkdirSync(this.outputDir, { recursive: true });
 
-    const sanitized = projectName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-
-    return `arquitectura-${sanitized || 'proyecto'}-${Date.now()}`;
-  }
-
-  private saveGeneratedMarkdown(outputBaseName: string, content: string): string {
-    const fileName = `${outputBaseName}.md`;
-    const outputPath = join(this.outputDir, fileName);
-    fs.writeFileSync(outputPath, content, 'utf8');
-    return outputPath;
-  }
-
-  private async saveGeneratedWord(outputBaseName: string, markdownContent: string): Promise<string> {
-    const fileName = `${outputBaseName}.docx`;
-    const outputPath = join(this.outputDir, fileName);
-
-    const doc = new Document({
-      sections: [
-        {
-          children: this.markdownToWordChildren(markdownContent),
-        },
-      ],
-    });
-
-    const buffer = await Packer.toBuffer(doc);
-    fs.writeFileSync(outputPath, buffer);
-    return outputPath;
-  }
 
   private markdownToWordChildren(markdownContent: string): FileChild[] {
     const lines = markdownContent.split(/\r?\n/);
@@ -485,35 +391,11 @@ export class InitialDocumentService {
     return randomUUID().replace(/-/g, '');
   }
 
-  async generateDdaTemplate() {
-    fs.mkdirSync(this.outputDir, { recursive: true });
-    const fileName = `dda-arq-ti-${Date.now()}.docx`;
-    const outputPath = join(this.outputDir, fileName);
-
+  async generateDdaTemplate(): Promise<{ buffer: Buffer; filename: string }> {
+    const filename = `dda-arq-ti-${Date.now()}.docx`;
     const doc = this.buildDdaWordDoc();
     const buffer = await Packer.toBuffer(doc);
-    fs.writeFileSync(outputPath, buffer);
-
-    return {
-      jsonapi: { version: '1.0' },
-      data: {
-        type: 'dda-document',
-        id: `id-${this.generateUniqueId()}`,
-        attributes: {
-          message: 'DDA ARQ TI generado exitosamente.',
-          file: {
-            name: fileName,
-            path: outputPath,
-          },
-        },
-        links: {
-          localPath: outputPath,
-        },
-      },
-      meta: {
-        generatedAt: new Date().toISOString(),
-      },
-    };
+    return { buffer, filename };
   }
 
   private ddaH1(text: string): Paragraph {

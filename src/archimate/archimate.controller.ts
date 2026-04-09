@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Res, StreamableFile } from '@nestjs/common';
+import { Response } from 'express';
 import { ArchimateService } from './archimate.service';
 import { GenerateArchimateFromJsonDto } from './dto/generate-archimate-from-json.dto';
 
@@ -13,8 +14,14 @@ export class ArchimateController {
   async generate(
     @Query('file') file = this.defaultInputExcel,
     @Query('out') out = this.defaultOutputFile,
-  ) {
-    return await this.archimateService.generateReport(file, out);
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const { buffer, filename } = await this.archimateService.generateReport(file, out);
+    res.set({
+      'Content-Type': 'application/xml',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+    return new StreamableFile(buffer);
   }
 
   @Get('from-excel/dry-run')
@@ -28,12 +35,18 @@ export class ArchimateController {
   @Post('from-json')
   async generateFromJson(
     @Body() body: GenerateArchimateFromJsonDto,
-  ) {
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
     const out = typeof body.out === 'string' && body.out.trim().length > 0
       ? body.out
       : this.defaultOutputFile;
 
-    return await this.archimateService.generateReportFromJson(body, out);
+    const { buffer, filename } = await this.archimateService.generateReportFromJson(body, out);
+    res.set({
+      'Content-Type': 'application/xml',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+    return new StreamableFile(buffer);
   }
 
   @Post('from-json/dry-run')
@@ -47,15 +60,4 @@ export class ArchimateController {
     return await this.archimateService.validateReportFromJson(body, out);
   }
 
-  @Get('google-drive/auth-url')
-  getGoogleDriveAuthUrl() {
-    return this.archimateService.getGoogleDriveAuthUrl();
-  }
-
-  @Get('google-drive/exchange-code')
-  async exchangeGoogleDriveCode(
-    @Query('code') code = '',
-  ) {
-    return await this.archimateService.exchangeGoogleDriveCode(code);
-  }
 }

@@ -10,7 +10,6 @@ import * as fs from 'fs';
 import * as XLSX from 'xlsx';
 import { randomUUID } from 'crypto';
 import { basename, resolve } from 'path';
-import { GoogleDriveService } from '../common/google-drive/google-drive.service';
 
 type ArchimateElement = {
   identifier: string;
@@ -39,7 +38,6 @@ type ViewNode = {
 export class ArchimateService {
   private readonly logger = new Logger(ArchimateService.name);
 
-  constructor(private readonly googleDrive: GoogleDriveService) {}
 
   private readonly defaultInputExcelPath = process.env.ARCHIMATE_INPUT_EXCEL_PATH || 'src/data/input/business_actors.xlsx';
   private readonly defaultOutputDir = process.env.ARCHIMATE_OUTPUT_DIR || 'src/data/output';
@@ -388,60 +386,6 @@ export class ArchimateService {
     };
   }
 
-  getGoogleDriveAuthUrl() {
-    return this.googleDrive.getAuthUrl();
-  }
-
-  async exchangeGoogleDriveCode(code: string) {
-    return this.googleDrive.exchangeCode(code);
-  }
-
-  private toArchimateApiResponse(
-    outputPath: string,
-    uploadResult?: {
-      uploaded?: boolean;
-      id?: string;
-      webViewLink?: string;
-      webContentLink?: string;
-      reason?: string;
-    } | null,
-    uploadAttempted = false,
-  ) {
-    const uploadedToDrive = Boolean(uploadResult?.uploaded);
-
-    return {
-      jsonapi: {
-        version: '1.0',
-      },
-      data: {
-        type: 'archimate-report',
-        id: `id-${this.generateUniqueId()}`,
-        attributes: {
-          message: 'Reporte ArchiMate generado',
-          file: {
-            name: basename(outputPath),
-            path: outputPath,
-          },
-          delivery: {
-            uploadAttempted,
-            uploadedToDrive,
-            provider: uploadedToDrive ? 'google-drive' : 'local',
-            reason: uploadResult?.reason ?? null,
-            googleDriveFileId: uploadResult?.id ?? null,
-          },
-        },
-        links: {
-          localPath: outputPath,
-          driveViewUrl: uploadResult?.webViewLink ?? null,
-          driveDownloadUrl: uploadResult?.webContentLink ?? null,
-        },
-      },
-      meta: {
-        generatedAt: new Date().toISOString(),
-      },
-    };
-  }
-
   private async buildAndSaveReport(
     courses: ArchimateElement[],
     principles: ArchimateElement[],
@@ -683,26 +627,10 @@ export class ArchimateService {
 
     const xml = header + body + views + footer;
 
-    const outputPath = this.resolveOutputPath(outPath);
+    const filename = basename(outPath) || 'archimate-model.xml';
+    const buffer = Buffer.from(xml, 'utf8');
 
-    try {
-      fs.writeFileSync(outputPath, xml, 'utf8');
-    } catch {
-      throw new InternalServerErrorException(`No se pudo escribir el reporte en ${outputPath}.`);
-    }
-
-    if (!this.googleDrive.shouldUploadOnFinish) {
-      return this.toArchimateApiResponse(outputPath, null, false);
-    }
-
-    try {
-      const uploadResult = await this.googleDrive.uploadFile(outputPath);
-      return this.toArchimateApiResponse(outputPath, uploadResult, true);
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `El reporte se genero, pero fallo la subida a Google Drive: ${this.googleDrive.buildUploadErrorMessage(error)}`,
-      );
-    }
+    return { buffer, filename };
   }
 
   async generateReport(filePath?: string, outPath = this.defaultOutputFile) {
