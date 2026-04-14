@@ -2,11 +2,29 @@ import 'dotenv/config';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import serverless from 'serverless-http';
+import type { Request, Response } from 'express';
 import { AppModule } from '../src/app.module';
 
-let cachedHandler: ReturnType<typeof serverless> | null = null;
-let cachedHandlerPromise: Promise<ReturnType<typeof serverless>> | null = null;
+type ExpressHandler = (req: Request, res: Response) => void;
+
+let cachedHandler: ExpressHandler | null = null;
+let cachedHandlerPromise: Promise<ExpressHandler> | null = null;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = setTimeout(() => reject(new Error(`BOOTSTRAP_TIMEOUT_${timeoutMs}`)), timeoutMs);
+
+    promise
+      .then((value) => {
+        clearTimeout(timeoutId);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timeoutId);
+        reject(error);
+      });
+  });
+}
 
 async function createHandler() {
   console.log('[api] Bootstrapping Nest app...');
@@ -32,18 +50,30 @@ async function createHandler() {
   );
 
   await app.init();
-  const expressApp = app.getHttpAdapter().getInstance();
+  const expressApp = app.getHttpAdapter().getInstance() as ExpressHandler;
   console.log('[api] Nest app initialized');
 
-  return serverless(expressApp);
+  return expressApp;
 }
 
-export default async function handler(req: unknown, res: unknown) {
+export default async function handler(req: Request, res: Response) {
   if (!cachedHandler) {
     if (!cachedHandlerPromise) {
       cachedHandlerPromise = createHandler();
     }
-    cachedHandler = await cachedHandlerPromise;
+
+    try {
+      const bootstrapTimeoutMs = Number(process.env.BOOTSTRAP_TIMEOUT_MS || 25_000);
+      cachedHandler = await withTimeout(cachedHandlerPromise, bootstrapTimeoutMs);
+    } catch (error) {
+      console.error('[api] Bootstrap failed or timed out', error);
+      if (!res.headersSent) {
+        res.status(503).json({
+          message: 'El servidor esta iniciando. Intenta nuevamente en unos segundos.',
+        });
+      }
+      return;
+    }
   }
 
   return cachedHandler(req, res);

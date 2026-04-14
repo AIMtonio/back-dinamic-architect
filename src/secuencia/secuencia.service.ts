@@ -6,6 +6,7 @@ export class SecuenciaService {
   private readonly aiModel = process.env.ARCHITECTURE_AI_MODEL || process.env.OPENAI_MODEL || 'gpt-4.1-mini';
   private readonly aiBaseUrl = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
   private readonly openAiApiKey = process.env.OPENAI_API_KEY;
+  private readonly aiTimeoutMs = Number(process.env.OPENAI_TIMEOUT_MS || 18_000);
 
   async generateUmlRaw(payload: CreateSecuenciaDto): Promise<string> {
     const result = await this.generateUml(payload);
@@ -31,6 +32,7 @@ export class SecuenciaService {
     try {
       const response = await fetch(`${this.aiBaseUrl}/chat/completions`, {
         method: 'POST',
+        signal: AbortSignal.timeout(this.aiTimeoutMs),
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${this.openAiApiKey}`,
