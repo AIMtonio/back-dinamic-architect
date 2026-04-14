@@ -6,8 +6,10 @@ import serverless from 'serverless-http';
 import { AppModule } from '../src/app.module';
 
 let cachedHandler: ReturnType<typeof serverless> | null = null;
+let cachedHandlerPromise: Promise<ReturnType<typeof serverless>> | null = null;
 
 async function createHandler() {
+  console.log('[api] Bootstrapping Nest app...');
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.enableCors({
@@ -31,13 +33,17 @@ async function createHandler() {
 
   await app.init();
   const expressApp = app.getHttpAdapter().getInstance();
+  console.log('[api] Nest app initialized');
 
   return serverless(expressApp);
 }
 
 export default async function handler(req: unknown, res: unknown) {
   if (!cachedHandler) {
-    cachedHandler = await createHandler();
+    if (!cachedHandlerPromise) {
+      cachedHandlerPromise = createHandler();
+    }
+    cachedHandler = await cachedHandlerPromise;
   }
 
   return cachedHandler(req, res);

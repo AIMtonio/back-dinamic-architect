@@ -7,7 +7,23 @@
   },
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/",
+      "destination": "/api"
+    },
+    {
+      "source": "/archimate/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/diagram/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/initial-document/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/secuencia/:path*",
       "destination": "/api"
     }
   ]
