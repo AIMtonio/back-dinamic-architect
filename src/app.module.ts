@@ -7,6 +7,7 @@ import { DiagramsModule } from './diagrams/diagrams.module';
 import { ArchimateModule } from './archimate/archimate.module';
 import { InitialDocumentModule } from './initial-document/initial-document.module';
 import { SecuenciaModule } from './secuencia/secuencia.module';
+import { DocumentModule } from './document/document.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { SecuenciaModule } from './secuencia/secuencia.module';
     ArchimateModule,
     InitialDocumentModule,
     SecuenciaModule,
+    DocumentModule,
   ],
   controllers: [AppController],
   providers: [
