@@ -8,6 +8,7 @@ import { ArchimateModule } from './archimate/archimate.module';
 import { InitialDocumentModule } from './initial-document/initial-document.module';
 import { SecuenciaModule } from './secuencia/secuencia.module';
 import { DocumentModule } from './document/document.module';
+import { CecoModule } from './ceco/ceco.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { DocumentModule } from './document/document.module';
     InitialDocumentModule,
     SecuenciaModule,
     DocumentModule,
+    CecoModule,
   ],
   controllers: [AppController],
   providers: [

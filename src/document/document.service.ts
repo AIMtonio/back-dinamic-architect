@@ -213,7 +213,6 @@ export class DocumentService {
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Documento de Problematica</title>
   <style>
     :root {
       --primary: #1a3a5c;
@@ -325,10 +324,6 @@ export class DocumentService {
   </style>
 </head>
 <body>
-  <div class="doc-header">
-    <h1>Documento de Problematica</h1>
-    <div class="meta">Generado el ${now} &nbsp;|&nbsp; Arquitectura de TI &nbsp;|&nbsp; Sector: Venta de Celulares y Financiamientos</div>
-  </div>
 
   <div class="original-box">
     <strong>Problematica original recibida</strong>
