@@ -18,7 +18,7 @@ export class DocumentService {
     process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
   ).replace(/\/$/, '');
   private readonly openAiApiKey = process.env.OPENAI_API_KEY;
-  private readonly aiTimeoutMs = Number(process.env.OPENAI_TIMEOUT_MS || 18_000);
+  private readonly aiTimeoutMs = Number(process.env.OPENAI_TIMEOUT_MS || 45_000);
 
   async generateProblemDocument(dto: GenerateProblemDocumentDto): Promise<{ html: string }> {
     const sections = await this.callAiForSections(dto.problematica);
@@ -72,6 +72,7 @@ export class DocumentService {
           ],
         }),
       });
+      console.log('AI response status:', response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -89,46 +90,79 @@ export class DocumentService {
       };
 
       const raw = json.choices?.[0]?.message?.content?.trim();
+      this.logger.log(`Respuesta IA recibida (${raw?.length ?? 0} chars). Preview: ${raw?.slice(0, 120)}`);
       if (!raw) {
         this.logger.warn('Respuesta vacia de IA, usando fallback.');
         return fallback;
       }
 
       const parsed = this.parseAiResponse(raw);
+      if (!parsed) {
+        this.logger.warn(`parseAiResponse retorno null. Raw content: ${raw?.slice(0, 300)}`);
+      }
       return parsed ?? fallback;
     } catch (error) {
       if (error instanceof InternalServerErrorException) throw error;
-      this.logger.warn('Error de conectividad con IA, usando fallback.');
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Error de conectividad con IA: ${msg}. Usando fallback.`);
       return fallback;
     }
   }
 
   private parseAiResponse(raw: string): ProblemDocumentSections | null {
+    // Elimina fences de markdown: ```json ... ``` o ``` ... ```
     const sanitized = raw
       .replace(/^```json\s*/i, '')
       .replace(/^```\s*/i, '')
       .replace(/```\s*$/i, '')
       .trim();
 
+    // Intenta extraer el primer bloque JSON si hay texto extra alrededor
+    const jsonMatch = sanitized.match(/\{[\s\S]*\}/);
+    const jsonStr = jsonMatch ? jsonMatch[0] : sanitized;
+
     try {
-      const parsed = JSON.parse(sanitized) as Partial<ProblemDocumentSections>;
-      if (
-        typeof parsed.problematicaDetallada !== 'string' ||
-        typeof parsed.alcanceProyecto !== 'string' ||
-        typeof parsed.alcanceNoConsiderado !== 'string' ||
-        typeof parsed.posibleSolucion !== 'string'
-      ) {
-        return null;
+      const parsed = JSON.parse(jsonStr) as Record<string, unknown>;
+
+      const requiredKeys: (keyof ProblemDocumentSections)[] = [
+        'problematicaDetallada',
+        'alcanceProyecto',
+        'alcanceNoConsiderado',
+        'posibleSolucion',
+      ];
+
+      for (const key of requiredKeys) {
+        if (parsed[key] === undefined || parsed[key] === null) {
+          this.logger.warn(`Falta la llave "${key}" en la respuesta de la IA.`);
+          return null;
+        }
       }
+
       return {
-        problematicaDetallada: parsed.problematicaDetallada,
-        alcanceProyecto: parsed.alcanceProyecto,
-        alcanceNoConsiderado: parsed.alcanceNoConsiderado,
-        posibleSolucion: parsed.posibleSolucion,
+        problematicaDetallada: this.coerceToString(parsed['problematicaDetallada']),
+        alcanceProyecto: this.coerceToString(parsed['alcanceProyecto']),
+        alcanceNoConsiderado: this.coerceToString(parsed['alcanceNoConsiderado']),
+        posibleSolucion: this.coerceToString(parsed['posibleSolucion']),
       };
-    } catch {
+    } catch (e) {
+      this.logger.warn(`JSON.parse fallo: ${e instanceof Error ? e.message : String(e)}`);
       return null;
     }
+  }
+
+  private coerceToString(value: unknown): string {
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value)) {
+      return value
+        .map((item) =>
+          typeof item === 'string' ? item : typeof item === 'object' && item !== null ? Object.values(item).join(' ') : String(item),
+        )
+        .join('\n');
+    }
+    if (typeof value === 'object' && value !== null) {
+      return Object.values(value).map(String).join('\n');
+    }
+    return String(value ?? '');
   }
 
   private buildFallbackSections(problematica: string): ProblemDocumentSections {
