@@ -32,6 +32,7 @@ type ViewNode = {
   w: number;
   h: number;
   fillColor: { r: number; g: number; b: number };
+  displayName?: string;
 };
 
 @Injectable()
@@ -59,34 +60,113 @@ export class ArchimateService {
           <relationship identifier="${relationship.identifier}" source="${relationship.source}" target="${relationship.target}" xsi:type="${relationship.xsiType}" />`;
   }
 
+  private wrapText(text: string, maxCharsPerLine = 18): string[] {
+    if (text.length <= maxCharsPerLine) return [text];
+    const words = text.split(' ');
+    const lines: string[] = [];
+    let current = '';
+    for (const word of words) {
+      if (!current) {
+        current = word;
+      } else if ((current + ' ' + word).length <= maxCharsPerLine) {
+        current += ' ' + word;
+      } else {
+        lines.push(current);
+        current = word;
+      }
+    }
+    if (current) lines.push(current);
+    return lines;
+  }
+
+  private computeContentDimensions(elements: ArchimateElement[]): { contentWidth: number; contentHeight: number } {
+    if (!elements.length) return { contentWidth: 300, contentHeight: 40 };
+
+    const MAX_PER_ROW = 4;
+    const NODE_WIDTH = 140;
+    const NODE_GAP = 16;
+    const LINE_HEIGHT = 16;
+    const NODE_V_PADDING = 24;
+    const ROW_GAP = 12;
+
+    const chunkSize = elements.length > MAX_PER_ROW ? MAX_PER_ROW : elements.length;
+    let maxContentWidth = 0;
+    let totalContentHeight = 0;
+    let isFirstRow = true;
+
+    for (let i = 0; i < elements.length; i += chunkSize) {
+      const rowElements = elements.slice(i, i + chunkSize);
+      const rowHeight = Math.max(...rowElements.map((el) => NODE_V_PADDING + this.wrapText(el.name).length * LINE_HEIGHT), 40);
+      const rowWidth = rowElements.length * NODE_WIDTH + (rowElements.length - 1) * NODE_GAP;
+      maxContentWidth = Math.max(maxContentWidth, rowWidth);
+      if (!isFirstRow) totalContentHeight += ROW_GAP;
+      totalContentHeight += rowHeight;
+      isFirstRow = false;
+    }
+
+    return { contentWidth: maxContentWidth, contentHeight: totalContentHeight };
+  }
+
   private createViewNodes(
     elements: ArchimateElement[],
     startX: number,
     startY: number,
-    height: number,
+    _height: number,
     fillColor: { r: number; g: number; b: number },
-  ): ViewNode[] {
-    const gap = 16;
-    let currentX = startX;
-    return elements.map((element) => {
-      const w = Math.max(140, Math.min(500, element.name.length * 8 + 32));
-      const node: ViewNode = {
-        identifier: `id-${this.generateUniqueId()}`,
-        elementRef: element.identifier,
-        x: currentX,
-        y: startY,
-        w,
-        h: height,
-        fillColor,
-      };
-      currentX += w + gap;
-      return node;
-    });
+  ): { nodes: ViewNode[]; contentWidth: number; contentHeight: number } {
+    if (!elements.length) return { nodes: [], contentWidth: 300, contentHeight: 40 };
+
+    const MAX_PER_ROW = 4;
+    const NODE_WIDTH = 140;
+    const NODE_GAP = 16;
+    const LINE_HEIGHT = 16;
+    const NODE_V_PADDING = 24;
+    const ROW_GAP = 12;
+
+    const chunkSize = elements.length > MAX_PER_ROW ? MAX_PER_ROW : elements.length;
+    const nodes: ViewNode[] = [];
+    let maxContentWidth = 0;
+    let totalContentHeight = 0;
+    let currentRowStartY = startY;
+    let isFirstRow = true;
+
+    for (let i = 0; i < elements.length; i += chunkSize) {
+      const rowElements = elements.slice(i, i + chunkSize);
+      const rowHeight = Math.max(...rowElements.map((el) => NODE_V_PADDING + this.wrapText(el.name).length * LINE_HEIGHT), 40);
+
+      let currentX = startX;
+      rowElements.forEach((element) => {
+        const lines = this.wrapText(element.name);
+        nodes.push({
+          identifier: `id-${this.generateUniqueId()}`,
+          elementRef: element.identifier,
+          x: currentX,
+          y: currentRowStartY,
+          w: NODE_WIDTH,
+          h: rowHeight,
+          fillColor,
+          displayName: lines.length > 1 ? lines.join('\n') : undefined,
+        });
+        currentX += NODE_WIDTH + NODE_GAP;
+      });
+
+      const rowWidth = rowElements.length * NODE_WIDTH + (rowElements.length - 1) * NODE_GAP;
+      maxContentWidth = Math.max(maxContentWidth, rowWidth);
+      if (!isFirstRow) totalContentHeight += ROW_GAP;
+      totalContentHeight += rowHeight;
+      isFirstRow = false;
+      currentRowStartY += rowHeight + ROW_GAP;
+    }
+
+    return { nodes, contentWidth: maxContentWidth, contentHeight: totalContentHeight };
   }
 
   private toXmlViewNode(node: ViewNode): string {
+    const label = node.displayName
+      ? `\n              <label xml:lang="es">${escapeXml(node.displayName)}</label>`
+      : '';
     return `
-            <node identifier="${node.identifier}" elementRef="${node.elementRef}" xsi:type="Element" x="${node.x}" y="${node.y}" w="${node.w}" h="${node.h}">
+            <node identifier="${node.identifier}" elementRef="${node.elementRef}" xsi:type="Element" x="${node.x}" y="${node.y}" w="${node.w}" h="${node.h}">${label}
               <style>
                 <fillColor r="${node.fillColor.r}" g="${node.fillColor.g}" b="${node.fillColor.b}" a="100" />
                 <lineColor r="92" g="92" b="92" a="100" />
@@ -458,20 +538,24 @@ export class ArchimateService {
     const cTPad = 50;
     const cBPad = 20;
     const cGap = 24;
-    const nodeGap = 16;
 
-    const calcContainerW = (nodes: ViewNode[]) => {
-      if (!nodes.length) return 300;
-      const nodesW = nodes.reduce((s, n) => s + n.w, 0);
-      return cLPad + nodesW + (nodes.length - 1) * nodeGap + cRPad;
-    };
+    const baDims = this.computeContentDimensions(normalizedBusinessActors);
+    const drDims = this.computeContentDimensions(normalizedDrivers);
+    const goDims = this.computeContentDimensions(normalizedGoals);
+    const prDims = this.computeContentDimensions(normalizedPrinciples);
+    const coDims = this.computeContentDimensions(normalizedCourses);
 
-    const baNodeH = 55, drNodeH = 40, goNodeH = 49, prNodeH = 55, coNodeH = 55;
-    const baContH = cTPad + baNodeH + cBPad;
-    const drContH = cTPad + drNodeH + cBPad;
-    const goContH = cTPad + goNodeH + cBPad;
-    const prContH = cTPad + prNodeH + cBPad;
-    const coContH = cTPad + coNodeH + cBPad;
+    const baContH = cTPad + baDims.contentHeight + cBPad;
+    const drContH = cTPad + drDims.contentHeight + cBPad;
+    const goContH = cTPad + goDims.contentHeight + cBPad;
+    const prContH = cTPad + prDims.contentHeight + cBPad;
+    const coContH = cTPad + coDims.contentHeight + cBPad;
+
+    const baContW = cLPad + baDims.contentWidth + cRPad;
+    const drContW = cLPad + drDims.contentWidth + cRPad;
+    const goContW = cLPad + goDims.contentWidth + cRPad;
+    const prContW = cLPad + prDims.contentWidth + cRPad;
+    const coContW = cLPad + coDims.contentWidth + cRPad;
 
     const baY = 24;
     const drY = baY + baContH + cGap;
@@ -479,53 +563,47 @@ export class ArchimateService {
     const prY = goY + goContH + cGap;
     const coY = prY + prContH + cGap;
 
-    const businessActorNodes = this.createViewNodes(
+    const businessActorResult = this.createViewNodes(
       normalizedBusinessActors,
       cX + cLPad,
       baY + cTPad,
-      baNodeH,
+      0,
       { r: 255, g: 255, b: 181 },
     );
-    const principleNodes = this.createViewNodes(
+    const principleResult = this.createViewNodes(
       normalizedPrinciples,
       cX + cLPad,
       prY + cTPad,
-      prNodeH,
+      0,
       { r: 204, g: 204, b: 255 },
     );
-    const goalNodes = this.createViewNodes(
+    const goalResult = this.createViewNodes(
       normalizedGoals,
       cX + cLPad,
       goY + cTPad,
-      goNodeH,
+      0,
       { r: 204, g: 204, b: 255 },
     );
-    const driverNodes = this.createViewNodes(
+    const driverResult = this.createViewNodes(
       normalizedDrivers,
       cX + cLPad,
       drY + cTPad,
-      drNodeH,
+      0,
       { r: 204, g: 204, b: 255 },
     );
-    const courseNodes = this.createViewNodes(
+    const courseResult = this.createViewNodes(
       normalizedCourses,
       cX + cLPad,
       coY + cTPad,
-      coNodeH,
+      0,
       { r: 245, g: 222, b: 170 },
     );
 
-    const baContW = calcContainerW(businessActorNodes);
-    const drContW = calcContainerW(driverNodes);
-    const goContW = calcContainerW(goalNodes);
-    const prContW = calcContainerW(principleNodes);
-    const coContW = calcContainerW(courseNodes);
-
-    const businessActorNodesXml = businessActorNodes.map((node) => this.toXmlViewNode(node)).join('');
-    const principleNodesXml = principleNodes.map((node) => this.toXmlViewNode(node)).join('');
-    const goalNodesXml = goalNodes.map((node) => this.toXmlViewNode(node)).join('');
-    const driverNodesXml = driverNodes.map((node) => this.toXmlViewNode(node)).join('');
-    const courseNodesXml = courseNodes.map((node) => this.toXmlViewNode(node)).join('');
+    const businessActorNodesXml = businessActorResult.nodes.map((node) => this.toXmlViewNode(node)).join('');
+    const principleNodesXml = principleResult.nodes.map((node) => this.toXmlViewNode(node)).join('');
+    const goalNodesXml = goalResult.nodes.map((node) => this.toXmlViewNode(node)).join('');
+    const driverNodesXml = driverResult.nodes.map((node) => this.toXmlViewNode(node)).join('');
+    const courseNodesXml = courseResult.nodes.map((node) => this.toXmlViewNode(node)).join('');
 
     const header = `
         <model xmlns="http://www.opengroup.org/xsd/archimate/3.0/" 
