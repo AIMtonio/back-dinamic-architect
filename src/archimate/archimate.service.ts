@@ -80,14 +80,16 @@ export class ArchimateService {
   }
 
   private computeContentDimensions(elements: ArchimateElement[]): { contentWidth: number; contentHeight: number } {
-    if (!elements.length) return { contentWidth: 300, contentHeight: 40 };
+    if (!elements.length) return { contentWidth: 300, contentHeight: 60 };
 
-    const MAX_PER_ROW = 4;
-    const NODE_WIDTH = 140;
+    const MAX_PER_ROW = 5;
+    const NODE_WIDTH = 150;
     const NODE_GAP = 16;
-    const LINE_HEIGHT = 16;
-    const NODE_V_PADDING = 24;
-    const ROW_GAP = 12;
+    const LINE_HEIGHT = 18;
+    // ArchiMate renders a type-icon header (~35px) + text area; use 50px top + 16px bottom
+    const NODE_TOP_PAD = 50;
+    const NODE_BOT_PAD = 16;
+    const ROW_GAP = 16;
 
     const chunkSize = elements.length > MAX_PER_ROW ? MAX_PER_ROW : elements.length;
     let maxContentWidth = 0;
@@ -96,7 +98,10 @@ export class ArchimateService {
 
     for (let i = 0; i < elements.length; i += chunkSize) {
       const rowElements = elements.slice(i, i + chunkSize);
-      const rowHeight = Math.max(...rowElements.map((el) => NODE_V_PADDING + this.wrapText(el.name).length * LINE_HEIGHT), 40);
+      const rowHeight = Math.max(
+        ...rowElements.map((el) => NODE_TOP_PAD + this.wrapText(el.name).length * LINE_HEIGHT + NODE_BOT_PAD),
+        60,
+      );
       const rowWidth = rowElements.length * NODE_WIDTH + (rowElements.length - 1) * NODE_GAP;
       maxContentWidth = Math.max(maxContentWidth, rowWidth);
       if (!isFirstRow) totalContentHeight += ROW_GAP;
@@ -114,14 +119,15 @@ export class ArchimateService {
     _height: number,
     fillColor: { r: number; g: number; b: number },
   ): { nodes: ViewNode[]; contentWidth: number; contentHeight: number } {
-    if (!elements.length) return { nodes: [], contentWidth: 300, contentHeight: 40 };
+    if (!elements.length) return { nodes: [], contentWidth: 300, contentHeight: 60 };
 
-    const MAX_PER_ROW = 4;
-    const NODE_WIDTH = 140;
+    const MAX_PER_ROW = 5;
+    const NODE_WIDTH = 150;
     const NODE_GAP = 16;
-    const LINE_HEIGHT = 16;
-    const NODE_V_PADDING = 24;
-    const ROW_GAP = 12;
+    const LINE_HEIGHT = 18;
+    const NODE_TOP_PAD = 50;
+    const NODE_BOT_PAD = 16;
+    const ROW_GAP = 16;
 
     const chunkSize = elements.length > MAX_PER_ROW ? MAX_PER_ROW : elements.length;
     const nodes: ViewNode[] = [];
@@ -132,7 +138,10 @@ export class ArchimateService {
 
     for (let i = 0; i < elements.length; i += chunkSize) {
       const rowElements = elements.slice(i, i + chunkSize);
-      const rowHeight = Math.max(...rowElements.map((el) => NODE_V_PADDING + this.wrapText(el.name).length * LINE_HEIGHT), 40);
+      const rowHeight = Math.max(
+        ...rowElements.map((el) => NODE_TOP_PAD + this.wrapText(el.name).length * LINE_HEIGHT + NODE_BOT_PAD),
+        60,
+      );
 
       let currentX = startX;
       rowElements.forEach((element) => {
