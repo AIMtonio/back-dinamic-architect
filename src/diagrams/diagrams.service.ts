@@ -7,9 +7,18 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import * as fs from 'fs';
 import * as XLSX from 'xlsx';
 import { basename } from 'path';
+
+type EncryptedPayloadEnvelope = {
+  alg?: string;
+  iv?: string;
+  data: string;
+  digest?: string;
+  ts?: string;
+};
 
 @Injectable()
 export class DiagramsService {
@@ -20,6 +29,196 @@ export class DiagramsService {
   private readonly outputDir = process.env.DIAGRAM_OUTPUT_DIR || 'src/data/output';
   private readonly outputExcelFile = process.env.DIAGRAM_OUTPUT_EXCEL_FILE || 'diagramaComponentes.drawio';
   private readonly outputJsonFile = process.env.DIAGRAM_OUTPUT_JSON_FILE || 'diagramaComponentesJson.drawio';
+  private readonly digestValidationMode = (process.env.DIAGRAM_DECRYPT_DIGEST_MODE || 'auto').toLowerCase();
+  private readonly maxSkewMs = Number(process.env.DIAGRAM_DECRYPT_MAX_SKEW_SECONDS || 300) * 1000;
+  private readonly encryptedAlgorithm = 'AES-256-GCM';
+
+  isEncryptedRequestPayload(payload: unknown): boolean {
+    return this.isEncryptedPayload(payload);
+  }
+
+  encryptResponsePayload(payload: unknown): EncryptedPayloadEnvelope {
+    const secret = this.getDecryptSecret();
+    const key = createHash('sha256').update(secret).digest();
+    const iv = randomBytes(12);
+
+    const plainBuffer = Buffer.from(JSON.stringify(payload ?? {}), 'utf8');
+    const cipher = createCipheriv('aes-256-gcm', key, iv);
+    const cipherText = Buffer.concat([cipher.update(plainBuffer), cipher.final()]);
+    const authTag = cipher.getAuthTag();
+
+    const data = Buffer.concat([iv, cipherText, authTag]).toString('base64');
+
+    return {
+      data,
+    };
+  }
+
+  private isEncryptedPayload(payload: unknown): payload is EncryptedPayloadEnvelope {
+    if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+      return false;
+    }
+    const candidate = payload as Partial<EncryptedPayloadEnvelope>;
+    return typeof candidate.data === 'string' && candidate.data.length > 0;
+  }
+
+  private normalizeEncryptedEnvelope(payload: EncryptedPayloadEnvelope): EncryptedPayloadEnvelope {
+    const normalized: EncryptedPayloadEnvelope = {
+      alg: payload.alg || this.encryptedAlgorithm,
+      iv: payload.iv,
+      data: payload.data,
+      digest: payload.digest,
+      ts: payload.ts,
+    };
+
+    if (normalized.alg !== this.encryptedAlgorithm) {
+      throw new BadRequestException(`Algoritmo no soportado. Usa ${this.encryptedAlgorithm}.`);
+    }
+
+    return normalized;
+  }
+
+  private getDecryptSecret(): string {
+    const secret = process.env.DIAGRAM_DECRYPT_SECRET || process.env.APP_CRYPTO_SECRET;
+    if (!secret) {
+      throw new BadRequestException('Falta DIAGRAM_DECRYPT_SECRET para procesar payload cifrado.');
+    }
+    return secret;
+  }
+
+  private compareDigest(expectedHex: string, receivedHex: string): boolean {
+    const expected = expectedHex.trim().toLowerCase();
+    const received = receivedHex.trim().toLowerCase();
+
+    if (!/^[a-f0-9]{64}$/.test(expected) || !/^[a-f0-9]{64}$/.test(received)) {
+      return false;
+    }
+
+    const expectedBuffer = Buffer.from(expected, 'hex');
+    const receivedBuffer = Buffer.from(received, 'hex');
+    return timingSafeEqual(expectedBuffer, receivedBuffer);
+  }
+
+  private validateTimestamp(ts?: string): void {
+    if (!ts) {
+      return;
+    }
+
+    const value = Date.parse(ts);
+    if (Number.isNaN(value)) {
+      throw new BadRequestException('El campo ts del payload cifrado no tiene un formato de fecha valido.');
+    }
+
+    const drift = Math.abs(Date.now() - value);
+    if (drift > this.maxSkewMs) {
+      throw new BadRequestException('El payload cifrado expiro o tiene una marca de tiempo invalida.');
+    }
+  }
+
+  private verifyEnvelopeDigest(envelope: EncryptedPayloadEnvelope, secret: string): void {
+    if (!envelope.digest) {
+      return;
+    }
+
+    const ivValue = envelope.iv || '';
+    const algValue = envelope.alg || this.encryptedAlgorithm;
+    const base = `${algValue}.${ivValue}.${envelope.data}.${envelope.ts || ''}`;
+    const baseNoAlg = `${ivValue}.${envelope.data}.${envelope.ts || ''}`;
+    const candidates = [
+      createHash('sha256').update(envelope.data).digest('hex'),
+      createHash('sha256').update(`${envelope.data}${envelope.ts || ''}`).digest('hex'),
+      createHash('sha256').update(`${ivValue}${envelope.data}`).digest('hex'),
+      createHash('sha256').update(`${ivValue}${envelope.data}${envelope.ts || ''}`).digest('hex'),
+      createHash('sha256').update(base).digest('hex'),
+      createHash('sha256').update(baseNoAlg).digest('hex'),
+      createHmac('sha256', secret).update(base).digest('hex'),
+      createHmac('sha256', secret).update(baseNoAlg).digest('hex'),
+    ];
+
+    const mode = this.digestValidationMode;
+    if (mode === 'off' || mode === 'none' || mode === 'disabled') {
+      return;
+    }
+
+    const valid = candidates.some((candidate, index) => {
+      if (mode === 'sha256' && index >= 6) {
+        return false;
+      }
+      if (mode === 'hmac' && index < 6) {
+        return false;
+      }
+      return this.compareDigest(candidate, envelope.digest as string);
+    });
+
+    if (!valid) {
+      if (mode === 'auto') {
+        this.logger.warn('Digest no reconocido en modo auto. Se continua con descifrado para compatibilidad.');
+        return;
+      }
+      throw new BadRequestException('Digest invalido para payload cifrado.');
+    }
+  }
+
+  private decryptPayloadIfEncrypted(payload: unknown): unknown {
+    if (!this.isEncryptedPayload(payload)) {
+      return payload;
+    }
+
+    const envelope = this.normalizeEncryptedEnvelope(payload as EncryptedPayloadEnvelope);
+    const secret = this.getDecryptSecret();
+
+    this.validateTimestamp(envelope.ts);
+    this.verifyEnvelopeDigest(envelope, secret);
+
+    try {
+      const encrypted = Buffer.from(envelope.data, 'base64');
+
+      if (encrypted.length <= 16) {
+        throw new BadRequestException('Data cifrada invalida para AES-256-GCM.');
+      }
+
+      let iv: Buffer;
+      let cipherText: Buffer;
+      let authTag: Buffer;
+
+      if (envelope.iv) {
+        iv = Buffer.from(envelope.iv, 'base64');
+        if (iv.length < 12) {
+          throw new BadRequestException('IV invalido para AES-256-GCM.');
+        }
+        authTag = encrypted.subarray(encrypted.length - 16);
+        cipherText = encrypted.subarray(0, encrypted.length - 16);
+      } else {
+        if (encrypted.length <= 28) {
+          throw new BadRequestException('Data cifrada invalida. Se esperaba base64 con iv+ciphertext+authTag.');
+        }
+        iv = encrypted.subarray(0, 12);
+        authTag = encrypted.subarray(encrypted.length - 16);
+        cipherText = encrypted.subarray(12, encrypted.length - 16);
+      }
+
+      const key = createHash('sha256').update(secret).digest();
+
+      const decipher = createDecipheriv('aes-256-gcm', key, iv);
+      decipher.setAuthTag(authTag);
+      const plainBuffer = Buffer.concat([decipher.update(cipherText), decipher.final()]);
+
+      const plainText = plainBuffer.toString('utf8');
+      const decoded = JSON.parse(plainText) as unknown;
+
+      if (typeof decoded !== 'object' || decoded === null || Array.isArray(decoded)) {
+        throw new BadRequestException('El contenido desencriptado no es un objeto JSON valido.');
+      }
+
+      return decoded;
+    } catch (err) {
+      if (err instanceof HttpException) {
+        throw err;
+      }
+      this.logger.error('No se pudo desencriptar el payload de diagramas', err as Error);
+      throw new BadRequestException('No se pudo desencriptar el payload de diagramas.');
+    }
+  }
 
   private buildOutputPath(fileName: string): string {
     return `${this.outputDir}/${fileName}`;
@@ -181,12 +380,14 @@ export class DiagramsService {
   }
 
   async generateDiagramFromJson(payload: any) {
-    const components = this.extractComponentsFromPayload(payload);
+    const decryptedPayload = this.decryptPayloadIfEncrypted(payload);
+    const components = this.extractComponentsFromPayload(decryptedPayload);
     return await this.generateDiagramFromComponents(components, this.buildOutputPath(this.outputJsonFile));
   }
 
   async validateDiagramFromJson(payload: any) {
-    const components = this.extractComponentsFromPayload(payload);
+    const decryptedPayload = this.decryptPayloadIfEncrypted(payload);
+    const components = this.extractComponentsFromPayload(decryptedPayload);
 
     return {
       message: 'Validacion de diagrama exitosa (dry-run).',

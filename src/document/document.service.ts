@@ -1,5 +1,14 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import { GenerateProblemDocumentDto } from './dto/generate-problem-document.dto';
+
+type EncryptedEnvelope = {
+  alg?: string;
+  iv?: string;
+  data: string;
+  digest?: string;
+  ts?: string;
+};
 
 type ProblemDocumentSections = {
   problematicaDetallada: string;
@@ -19,11 +28,124 @@ export class DocumentService {
   ).replace(/\/$/, '');
   private readonly openAiApiKey = process.env.OPENAI_API_KEY;
   private readonly aiTimeoutMs = Number(process.env.OPENAI_TIMEOUT_MS || 45_000);
+  private readonly encryptedAlgorithm = 'AES-256-GCM';
+  private readonly digestValidationMode = (process.env.DOCUMENT_DECRYPT_DIGEST_MODE || process.env.DIAGRAM_DECRYPT_DIGEST_MODE || 'auto').toLowerCase();
+  private readonly maxSkewMs = Number(process.env.DOCUMENT_DECRYPT_MAX_SKEW_SECONDS || process.env.DIAGRAM_DECRYPT_MAX_SKEW_SECONDS || 300) * 1000;
 
-  async generateProblemDocument(dto: GenerateProblemDocumentDto): Promise<{ html: string }> {
-    const sections = await this.callAiForSections(dto.problematica);
-    const html = this.buildHtml(dto.problematica, sections);
-    return { html };
+  private getSecret(): string {
+    const secret = process.env.DOCUMENT_DECRYPT_SECRET || process.env.DIAGRAM_DECRYPT_SECRET || process.env.APP_CRYPTO_SECRET;
+    if (!secret) throw new BadRequestException('Falta DOCUMENT_DECRYPT_SECRET para procesar payload cifrado.');
+    return secret;
+  }
+
+  isEncryptedPayload(payload: unknown): payload is EncryptedEnvelope {
+    if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) return false;
+    const c = payload as Partial<EncryptedEnvelope>;
+    return typeof c.data === 'string' && c.data.length > 0;
+  }
+
+  encryptResponse(payload: unknown): EncryptedEnvelope {
+    const secret = this.getSecret();
+    const key = createHash('sha256').update(secret).digest();
+    const iv = randomBytes(12);
+    const cipher = createCipheriv('aes-256-gcm', key, iv);
+    const cipherText = Buffer.concat([cipher.update(Buffer.from(JSON.stringify(payload ?? {}), 'utf8')), cipher.final()]);
+    const authTag = cipher.getAuthTag();
+    return { data: Buffer.concat([iv, cipherText, authTag]).toString('base64') };
+  }
+
+  private compareDigest(a: string, b: string): boolean {
+    const ea = a.trim().toLowerCase();
+    const eb = b.trim().toLowerCase();
+    if (!/^[a-f0-9]{64}$/.test(ea) || !/^[a-f0-9]{64}$/.test(eb)) return false;
+    return timingSafeEqual(Buffer.from(ea, 'hex'), Buffer.from(eb, 'hex'));
+  }
+
+  private verifyDigest(envelope: EncryptedEnvelope, secret: string): void {
+    if (!envelope.digest) return;
+    const ivV = envelope.iv || '';
+    const algV = envelope.alg || this.encryptedAlgorithm;
+    const base = `${algV}.${ivV}.${envelope.data}.${envelope.ts || ''}`;
+    const baseNoAlg = `${ivV}.${envelope.data}.${envelope.ts || ''}`;
+    const candidates = [
+      createHash('sha256').update(envelope.data).digest('hex'),
+      createHash('sha256').update(`${envelope.data}${envelope.ts || ''}`).digest('hex'),
+      createHash('sha256').update(`${ivV}${envelope.data}`).digest('hex'),
+      createHash('sha256').update(`${ivV}${envelope.data}${envelope.ts || ''}`).digest('hex'),
+      createHash('sha256').update(base).digest('hex'),
+      createHash('sha256').update(baseNoAlg).digest('hex'),
+      createHmac('sha256', secret).update(base).digest('hex'),
+      createHmac('sha256', secret).update(baseNoAlg).digest('hex'),
+    ];
+    const mode = this.digestValidationMode;
+    if (mode === 'off' || mode === 'none' || mode === 'disabled') return;
+    const valid = candidates.some((c, i) => {
+      if (mode === 'sha256' && i >= 6) return false;
+      if (mode === 'hmac' && i < 6) return false;
+      return this.compareDigest(c, envelope.digest as string);
+    });
+    if (!valid && mode !== 'auto') throw new BadRequestException('Digest invalido para payload cifrado.');
+  }
+
+  private validateTs(ts?: string): void {
+    if (!ts) return;
+    const value = Date.parse(ts);
+    if (Number.isNaN(value)) throw new BadRequestException('Campo ts invalido.');
+    if (Math.abs(Date.now() - value) > this.maxSkewMs) throw new BadRequestException('El payload cifrado expiro.');
+  }
+
+  decryptPayload(payload: unknown): GenerateProblemDocumentDto {
+    if (!this.isEncryptedPayload(payload)) {
+      const plain = payload as GenerateProblemDocumentDto;
+      if (!plain.problematica || plain.problematica.trim().length < 10) {
+        throw new BadRequestException('La problematica debe tener al menos 10 caracteres.');
+      }
+      return plain;
+    }
+    const envelope = payload as EncryptedEnvelope;
+    if (envelope.alg && envelope.alg !== this.encryptedAlgorithm) {
+      throw new BadRequestException(`Algoritmo no soportado. Usa ${this.encryptedAlgorithm}.`);
+    }
+    const secret = this.getSecret();
+    this.validateTs(envelope.ts);
+    this.verifyDigest(envelope, secret);
+    try {
+      const encrypted = Buffer.from(envelope.data, 'base64');
+      if (encrypted.length <= 28) throw new BadRequestException('Data cifrada invalida.');
+      let iv: Buffer;
+      let cipherText: Buffer;
+      let authTag: Buffer;
+      if (envelope.iv) {
+        iv = Buffer.from(envelope.iv, 'base64');
+        if (iv.length < 12) throw new BadRequestException('IV invalido.');
+        authTag = encrypted.subarray(encrypted.length - 16);
+        cipherText = encrypted.subarray(0, encrypted.length - 16);
+      } else {
+        iv = encrypted.subarray(0, 12);
+        authTag = encrypted.subarray(encrypted.length - 16);
+        cipherText = encrypted.subarray(12, encrypted.length - 16);
+      }
+      const key = createHash('sha256').update(secret).digest();
+      const decipher = createDecipheriv('aes-256-gcm', key, iv);
+      decipher.setAuthTag(authTag);
+      const decoded = JSON.parse(Buffer.concat([decipher.update(cipherText), decipher.final()]).toString('utf8')) as GenerateProblemDocumentDto;
+      if (!decoded.problematica || decoded.problematica.trim().length < 10) {
+        throw new BadRequestException('La problematica debe tener al menos 10 caracteres.');
+      }
+      return decoded;
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      throw new BadRequestException('No se pudo desencriptar el payload de document.');
+    }
+  }
+
+  async generateProblemDocument(dto: GenerateProblemDocumentDto): Promise<{ html: string } | EncryptedEnvelope> {
+    const wasEncrypted = this.isEncryptedPayload(dto);
+    const decrypted = this.decryptPayload(dto);
+    const sections = await this.callAiForSections(decrypted.problematica);
+    const html = this.buildHtml(decrypted.problematica, sections);
+    const result = { html };
+    return wasEncrypted ? this.encryptResponse(result) : result;
   }
 
   private async callAiForSections(problematica: string): Promise<ProblemDocumentSections> {

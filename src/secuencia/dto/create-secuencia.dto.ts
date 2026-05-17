@@ -29,5 +29,27 @@ export class CreateSecuenciaDto {
 	@ArrayMinSize(1)
 	@ValidateNested({ each: true })
 	@Type(() => SequenceStepDto)
+	@IsOptional()
 	pasos: SequenceStepDto[];
+
+	// Campos de payload cifrado AES-256-GCM
+	@IsString()
+	@IsOptional()
+	alg?: string;
+
+	@IsString()
+	@IsOptional()
+	iv?: string;
+
+	@IsString()
+	@IsOptional()
+	data?: string;
+
+	@IsString()
+	@IsOptional()
+	digest?: string;
+
+	@IsString()
+	@IsOptional()
+	ts?: string;
 }

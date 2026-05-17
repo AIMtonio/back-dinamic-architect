@@ -15,11 +15,15 @@ class IsDiagramJsonSchemaConstraint implements ValidatorConstraintInterface {
 
     const hasArrayInPayload = Object.values(payload).some((value) => Array.isArray(value));
 
-    return hasNewSchema || hasArrayInPayload;
+    const hasEncryptedSchema =
+      typeof payload.data === 'string' &&
+      payload.data.length > 0;
+
+    return hasNewSchema || hasArrayInPayload || hasEncryptedSchema;
   }
 
   defaultMessage(): string {
-    return 'Payload invalido. Usa componentes/tipo con misma longitud o incluye al menos un arreglo de objetos.';
+    return 'Payload invalido. Usa componentes/tipo con misma longitud, incluye al menos un arreglo de objetos o envia body cifrado con AES-256-GCM.';
   }
 }
 
@@ -33,6 +37,26 @@ export class GenerateDiagramFromJsonDto {
   @IsArray()
   @IsString({ each: true })
   tipo?: string[];
+
+  @IsOptional()
+  @IsString()
+  alg?: string;
+
+  @IsOptional()
+  @IsString()
+  iv?: string;
+
+  @IsOptional()
+  @IsString()
+  data?: string;
+
+  @IsOptional()
+  @IsString()
+  digest?: string;
+
+  @IsOptional()
+  @IsString()
+  ts?: string;
 
   @Validate(IsDiagramJsonSchemaConstraint)
   private readonly schemaCheck = true;

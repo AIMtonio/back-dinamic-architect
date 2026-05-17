@@ -16,8 +16,17 @@ export class DiagramsController {
   async generateFromJson(
     @Body() payload: GenerateDiagramFromJsonDto,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<StreamableFile> {
+  ): Promise<StreamableFile | Record<string, unknown>> {
     const { buffer, filename } = await this.drawioService.generateDiagramFromJson(payload);
+
+    if (this.drawioService.isEncryptedRequestPayload(payload)) {
+      return this.drawioService.encryptResponsePayload({
+        filename,
+        mimeType: 'application/xml',
+        fileBase64: buffer.toString('base64'),
+      }) as unknown as Record<string, unknown>;
+    }
+
     res.set({
       'Content-Type': 'application/xml',
       'Content-Disposition': `attachment; filename="${filename}"`,
@@ -27,7 +36,13 @@ export class DiagramsController {
 
   @Post('from-json/dry-run')
   async validateFromJson(@Body() payload: GenerateDiagramFromJsonDto) {
-    return await this.drawioService.validateDiagramFromJson(payload);
+    const result = await this.drawioService.validateDiagramFromJson(payload);
+
+    if (this.drawioService.isEncryptedRequestPayload(payload)) {
+      return this.drawioService.encryptResponsePayload(result);
+    }
+
+    return result;
   }
 
   @Get('from-excel')

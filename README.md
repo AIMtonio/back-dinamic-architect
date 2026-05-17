@@ -36,6 +36,9 @@ Variables disponibles:
 - `DIAGRAM_OUTPUT_DIR`: carpeta base de salida Diagram.
 - `DIAGRAM_OUTPUT_EXCEL_FILE`: nombre default de salida draw.io desde Excel.
 - `DIAGRAM_OUTPUT_JSON_FILE`: nombre default de salida draw.io desde JSON.
+- `DIAGRAM_DECRYPT_SECRET`: secreto compartido para descifrar payload AES-256-GCM (se deriva llave SHA-256 de 32 bytes).
+- `DIAGRAM_DECRYPT_DIGEST_MODE`: validacion de digest (`auto`, `sha256`, `hmac` o `off`).
+- `DIAGRAM_DECRYPT_MAX_SKEW_SECONDS`: tolerancia maxima de desfase para `ts` en payload cifrado.
 - `GOOGLE_DRIVE_UPLOAD_ON_FINISH`: si es `true`, sube automaticamente el archivo Archimate generado.
 - `GOOGLE_DRIVE_FOLDER_ID`: id de carpeta destino en Google Drive.
 - `GOOGLE_DRIVE_CLIENT_EMAIL`: correo de service account de Google.
@@ -255,6 +258,29 @@ Esquemas soportados:
 }
 ```
 
+3. Esquema cifrado (AES-256-GCM)
+
+```json
+{
+   "alg": "AES-256-GCM",
+   "iv": "r/cprDyjav+2Ub6G",
+   "data": "N2rsXqweftYIlxrqgIMqrdTrl0z2O2peS56v7hOuzCpAnaVQPiswjdsQj93Vhnzw1FyEVxoGCkNku3Ag",
+   "digest": "cde2f0c653891314a55e7bf64e1f0daddd407b4e348d74be0f31ced2a1817883",
+   "ts": "2026-04-25T01:55:18.573Z"
+}
+```
+
+Notas del esquema cifrado:
+
+- `data` debe venir en base64 con `ciphertext + authTag` (ultimos 16 bytes = tag GCM).
+- Tambien se soporta body minimo con solo `data` usando formato `iv + ciphertext + authTag`.
+- El backend descifra y procesa el JSON interno exactamente igual que hoy.
+- Si envias `digest`, el backend lo valida segun `DIAGRAM_DECRYPT_DIGEST_MODE`.
+- En modo `auto`, si no reconoce el formato del digest, continua por compatibilidad.
+- En modo `off`, ignora el digest completamente.
+- Si el request llega cifrado, la respuesta tambien se devuelve cifrada en formato minimo con solo `data`.
+- En `POST /diagram/from-json` la respuesta cifrada contiene `filename`, `mimeType` y `fileBase64` dentro del payload desencriptado.
+
 Ejemplo:
 
 ```bash
@@ -372,6 +398,9 @@ DIAGRAM_INPUT_EXCEL_PATH=src/data/input/Componentes.xlsx
 DIAGRAM_OUTPUT_DIR=src/data/output
 DIAGRAM_OUTPUT_EXCEL_FILE=diagramaComponentes.drawio
 DIAGRAM_OUTPUT_JSON_FILE=diagramaComponentesJson.drawio
+DIAGRAM_DECRYPT_SECRET=
+DIAGRAM_DECRYPT_DIGEST_MODE=auto
+DIAGRAM_DECRYPT_MAX_SKEW_SECONDS=300
 GOOGLE_DRIVE_UPLOAD_ON_FINISH=false
 GOOGLE_DRIVE_FOLDER_ID=
 GOOGLE_DRIVE_CLIENT_EMAIL=
