@@ -171,5 +171,6 @@
   { "ceco": "1000317149", "nombreCorto": "Distrib Mercado Pago", "nombreLargo": "Distribuidor Mercado Pago", "responsable": "Mauricio Correa" },
   { "ceco": "1000TD0238", "nombreCorto": "Desarrollo Ti Mid", "nombreLargo": "DESARROLLO TI MID", "responsable": "Aaron Suarez" },
   { "ceco": "1000TD0239", "nombreCorto": "Desarrollo Ti Cdmx", "nombreLargo": "DESARROLLO TI CDMX", "responsable": "Aaron Suarez" },
-  { "ceco": "1000CS0000", "nombreCorto": "Direccion de Cadena de Suministro", "nombreLargo": "Direccion de Cadena de Suministro", "responsable": "" }
+  { "ceco": "1000CS0000", "nombreCorto": "Direccion de Cadena de Suministro", "nombreLargo": "Direccion de Cadena de Suministro", "responsable": "" },
+  { "ceco": "2000GTTD00", "nombreCorto": "Direccion De Transformacion Digital Guatemala", "nombreLargo": "Direccion De Transformacion Digital Guatemala", "responsable": "Gonzalo Saenz" }
 ]
